@@ -2,8 +2,9 @@
 library('raster')
 library( 'gplots' )
 library( 'viridis' )
+library( 'minpack.lm' )
 mycols <- viridis( 5 )
-source('~/Dropbox/scripts/plotting_libraries.r')
+source('/vardy/leah/xmmlss/plotting_libraries.r')
 
 
 read_in_catalogue <- function( infile ){
@@ -11,6 +12,27 @@ read_in_catalogue <- function( infile ){
     qmc <- read.table( infile, stringsAsFactors=FALSE, sep=",", header=TRUE )
     return( qmc )
 }
+
+find_nearest_neighbours <- function( df ){
+
+    if ( 'ALPHA_J2000' %in% colnames( df ) ){
+	racol <- 'ALPHA_J2000'
+	decol <- 'DELTA_J2000'
+    } else {
+	racol <- 'RA'
+	decol <- 'DEC'
+    }
+
+    nearest_neighbours <- c()
+    for ( ii in 1:dim(df)[1] ){
+        distances <- cenang( df[ii,racol], df[ii,decol], df[,racol], df[,decol] )
+        nearest_neighbours <- c( nearest_neighbours, min( distances[which(distances >0)] ) )
+    }
+    nearest_neighbours <- nearest_neighbours * 60. * 60. ## convert to arcsec
+    return( nearest_neighbours )
+
+}
+
 
 plot_detection_fractions_vs_radio_size <- function( qmc, plotfile='Match_fraction_vs_size.pdf', radio_limit=0 ){
 
@@ -310,7 +332,7 @@ create_footprint_mask <- function( df, ra_col_name, dec_col_name, cellsize=60, t
         xnsteps <- ceiling( ( xmax - xmin ) / ( cellsize / 60. / 60. ) )
         ynsteps <- ceiling( ( ymax - ymin ) / ( cellsize / 60. / 60. ) )
 
-        k <- hist2d( ra, dec, nbins=c(xnsteps,ynsteps), col=viridis(20) )
+        k <- hist2d( ra, dec, nbins=c(xnsteps,ynsteps), col=viridis(20), show=FALSE )
         k$counts[ which( k$counts > 0 ) ] <- 1
 
         ## exclude haloflags
@@ -337,10 +359,11 @@ create_footprint_mask <- function( df, ra_col_name, dec_col_name, cellsize=60, t
 
         kim <- raster( list( x=k$x, y=k$y, z=k$counts ) )
 
-        plot( 1, type='n', xlim=c(37.5,33), ylim=c(-6,-3.5),xlab='RA [deg]', ylab='Dec [deg]')
-        rect(par("usr")[1], par("usr")[3], par("usr")[2], par("usr")[4], col = "black")
-        image( kim, col=gray.colors(2,start=0,end=1), add=TRUE )
-        my_decision <- readline('Is this map acceptable? (y/n): ')
+        #plot( 1, type='n', xlim=c(37.5,33), ylim=c(-6,-3.5),xlab='RA [deg]', ylab='Dec [deg]')
+        #rect(par("usr")[1], par("usr")[3], par("usr")[2], par("usr")[4], col = "black")
+        #image( kim, col=gray.colors(2,start=0,end=1), add=TRUE )
+        #my_decision <- readline('Is this map acceptable? (y/n): ')
+	my_decision <- 'y'
         if ( my_decision == 'y' ){
             plotfile <- paste( strsplit( outfile, '.csv' )[[1]], '_mask_',cellsize,'arcsec.pdf', sep='' )
             pdf( plotfile )
@@ -358,6 +381,7 @@ create_footprint_mask <- function( df, ra_col_name, dec_col_name, cellsize=60, t
             cat( 'Not saving plot. Try re-running with a different cell size.\n' )
             cat( '   (current cell size', cellsize, 'arcsec)\n' )
         }
+	#dev.off()
 
     }
 
@@ -461,33 +485,143 @@ plot_sky_distribution <- function( parm1='', ra1=0, de1=0, parm2='', ra2=0, de2=
     box( which='plot' )
     dev.off()
         
-        
+}
+
+find_number_no_counterparts <- function( radio_df, video_df, radii ){
+
+    ## what is the number of sources with no possible counterparts
+    n_counterparts <- matrix( nrow=dim(radio_df)[1], ncol=length(radii) )
+    pb <- txtProgressBar( min=0, max=dim(radio_df)[1], style=3 )
+    for ( ii in 1:dim(radio_df)[1] ){
+        ## calculate the distance from the source to all other sources, convert to arcsec 
+        distances <- cenang( radio_df$RA[ii], radio_df$DEC[ii], video_df$ALPHA_J2000, video_df$DELTA_J2000 ) * 60. * 60.
+        ## loop through the radii to find the number of counterparts
+        for ( jj in 1:length(radii) ) n_counterparts[ii,jj] <- length( which( distances <= radii[jj] ) )
+        setTxtProgressBar( pb, ii )        
+    }
+    close( pb )
+    cat( '\n' )
+
+    n_blanks <- c()
+    for ( jj in 1:length(radii) ) n_blanks <- c( n_blanks, length( which( n_counterparts[,jj] == 0 ) ) )
+    return( n_blanks )
 
 }
 
+find_Q0_fleuren <- function( radio_df, my_mask, video_df, radii ){
 
+    ## first check if this has already been done
+    ## get the band first for the filename
+    tmp <- colnames( video_df )
+    tmp1 <- tmp[which( grepl( 'MAG_', tmp ) )]
+    my_band <- strsplit( tmp1, '_' )[[1]][1]
 
+    f_file <- paste( 'Fleuren_no_counterparts_', my_band, '.csv', sep='' )
 
+    if ( !file.exists( f_file ) ){
 
+	    ## for the real catalogue, find the number of sources that don't have counterparts as a function of r
+	    cat( 'Finding blanks for REAL catalogue.\n' )
+	    REAL_no_counterparts <- find_number_no_counterparts( radio_df, video_df, radii )
+    
+	    ## make a random radio catalogue
+	    n_srcs <- dim( radio_df )[1]
+	    min_RA <- min( video_df$ALPHA_J2000 )
+	    max_RA <- max( video_df$ALPHA_J2000 )
+	    min_DEC <- min( video_df$DELTA_J2000 )
+	    max_DEC <- max( video_df$DELTA_J2000 )
 
+	    ## randomly generate RA/DEC, scaling to the appropriate area in the sky
+	    set.seed(30)
+	    rand_DEC <- runif( n_srcs * 2 )
+	    rand_DEC <- rand_DEC * ( max_DEC-min_DEC ) + min_DEC
 
+	    set.seed(20)
+	    rand_RA <- runif( n_srcs * 2 )
+	    rand_RA <- rand_RA * ( max_RA-min_RA ) + min_RA 
+	    ## do i need a correction for cos( DEC ) ?
 
+	    random_RA_DEC <- data.frame( rand_RA, rand_DEC, stringsAsFactors=FALSE )
+	    colnames( random_RA_DEC ) <- c( 'RA', 'DEC' )
+    
+	    ## throw out RA,DEC pairs not in the mask
+	    mask_vec <- rep( 0, dim(random_RA_DEC)[1] )
+	    ## loop through data frame
+	    for ( ii in 1:dim(random_RA_DEC)[1] ){
+        	## first check if it's in the mask area
+	        ra_check <- ( random_RA_DEC$RA[ii] >= min( my_mask$x.breaks ) & random_RA_DEC$RA[ii] <= max( my_mask$x.breaks ) )
+        	dec_check <- ( random_RA_DEC$DEC[ii] >= min( my_mask$y.breaks ) & random_RA_DEC$DEC[ii] <= max( my_mask$y.breaks ) )
+	        if ( ra_check+dec_check == 2 ){
+        	    ## ra will always be positive 
+	            bin_x <- max( which( my_mask$x.breaks < random_RA_DEC$RA[ii] ) )
+        	    ## dec can be negative
+	            bin_y <- max( which( random_RA_DEC$DEC[ii] >= my_mask$y.breaks ) ) ## all values are greater than zero
+        	    ## case 3: if they straddle zero ... ?
+	            if ( my_mask$counts[bin_x,bin_y] == 1 ) mask_vec[ii] <- 1
+        	}
+	    }
+	    random_RA_DEC <- random_RA_DEC[ which( mask_vec == 1 ), ]
 
+	    ## trim down the array so it's the right size 
+	    if ( dim( random_RA_DEC )[1] >= n_srcs ) random_RA_DEC <- random_RA_DEC[ 1:n_srcs, ] else cat( 'NOT ENOUGH DATA POINTS IN THE RANDOM CATALOGUE.\n' )
 
+	    ## find the number of no counterparts as a function of radius
+	    cat( 'Finding blanks for RANDOM catalogue.\n' )
+	    RANDOM_no_counterparts <- find_number_no_counterparts( random_RA_DEC, video_df, radii )
 
+	    ## take the ratio
+	    no_counterpart_ratio <- REAL_no_counterparts / RANDOM_no_counterparts
+    
+	    cp_ratio <- data.frame( REAL_no_counterparts, RANDOM_no_counterparts, no_counterpart_ratio )
+	    write.table( cp_ratio, file=f_file, quote=FALSE, row.names=FALSE, sep=',' )
 
+    } else {
+	cat( 'Finding blanks already done for this band, reading file.\n' )
+	cp_ratio <- read.table( f_file, stringsAsFactors=FALSE, header=TRUE, sep=',' )
+	REAL_no_counterparts <- cp_ratio$REAL_no_counterparts
+	RANDOM_no_counterparts <- cp_ratio$RANDOM_no_counterparts
+	no_counterpart_ratio <- cp_ratio$no_counterpart_ratio
+    }
 
+    ## fit the model to the data
+    y <- 1 - no_counterpart_ratio
+    result <- nlsLM( y ~ 1 - q_0 * ( 1 - exp( -radii^2 / ( 2 * sig^2 ) ) ) + a , start=list( q_0 = 1.3, sig=10, a=0.1 ) )
+    ## gives q_0 = 0.7492
+    coeffs <- coef( summary( result ) )
+    q_0 <- coeffs[1,1]
+    q_0_err <- coeffs[1,2]
 
+    cat( '... Q_0 found:', q_0, '+/-', q_0_err, '\n' )
 
+    q0_df <- data.frame( q_0, q_0_err )
 
+    ## make a plot 
+    ## get the band first for the filename
 
+    mycols <- viridis( 6 )
+    pdf( paste( 'Q_0_estimate_', my_band, '.pdf', sep='' ) )
+    lplot( radii, RANDOM_no_counterparts/dim(radio_df)[1], type='l', col=mycols[2], x_lab='Radius [arcsec]', y_lab='1-Q(r)', lwd=3, lty=3 )
+    lines( radii, REAL_no_counterparts/dim(radio_df)[1], col=mycols[4], lwd=3 )
+    lines( radii, predict( result ), lwd=3, col='gray' )
+    points( radii, 1 - no_counterpart_ratio, pch=18, cex=1.5 )
+    legend( 'topright', c( 'Random', 'Real', 'Data', 'Fit' ), col=c(mycols[2],mycols[4],'black','gray'), lty=c(3,1,NA,1), pch=c(NA,NA,18,NA), lwd=3, bty='n', cex=1.25 )
+    text( max(radii)/2-1, 0.9, bquote( Q[0] == .(q_0) %+-% .(q_0_err) ) )
+    dev.off()
 
+    return( q0_df )    
 
+}
 
+calculate_hist <- function( mydata, mybreaks ){
 
+    mycounts <- c()
+    for ( ii in 2:length(mybreaks) ) mycounts <- c( mycounts, length( which( mydata > mybreaks[ii-1] & mydata <= mybreaks[ii] ) ) )
+    break_step <- mybreaks[2] - mybreaks[1]
+    mymids <- mybreaks[1:(length(mybreaks)-1)]+0.5*break_step
 
+    df <- list( counts=mycounts, mids=mymids, breaks=mybreaks )
+    return( df )
 
-
-
+}
 
 

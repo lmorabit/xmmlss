@@ -9,6 +9,8 @@ for ( my_band in my_bands ){
     mag_cols <- paste( my_band, c( '_MAG_', '_MAGERR_' ), mag_col, sep='' )
     keep_cols <- c( basic_cols, mag_cols, 'SNR' )
     my_cat_name <- gsub( '.fits', paste( '_', my_band, '_', mag_col, '_', mag_cut, '.csv', sep='' ), master_cat )
+    ## check if on vardy 
+    if ( strsplit( my_cat_name, '/' )[[1]][2] == 'vardy' ) my_cat_name <- gsub( 'videouser/v1.3-20160414/cats', 'leah/data/xmmlss/cats', my_cat_name )
 
     ## this stilts command reads in the master catalogue and outputs a catalogue keeping only keep_cols
     ## where the magnitude cut has been applied, and snr is calculated and added to the table. 
