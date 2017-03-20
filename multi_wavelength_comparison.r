@@ -748,7 +748,7 @@ prepare_radio_data <- function( starting_file, video_area, snr_cutoff=5, outfile
     my_sum_VLA <- sum_components( my_VLA, outfile=outfile )
 
     nn <- find_nearest_neighbours( my_sum_VLA )
-    my_sum_VLA[ 'nearest_neighbour', ] <- nn
+    my_sum_VLA[ ,'nearest_neighbour' ] <- nn
 
     return( my_sum_VLA )
 
