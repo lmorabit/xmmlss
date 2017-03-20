@@ -111,8 +111,7 @@ cv <- read.table( my_cat_name, stringsAsFactors=FALSE, header=TRUE, sep=',' )
 mycell <- 10
 maskfile <- gsub( '.csv', '_mask_arcsec.txt', my_cat_name )
 maskfile <- gsub( 'arcsec', paste( mycell, 'arcsec', sep='' ), maskfile )
-#if ( !file.exists( maskfile ) ) radio_mask <- create_footprint_mask( cv, 'ALPHA_J2000', 'DELTA_J2000', cellsize=mycell, outfile=my_cat_name, method='2dhist', exclude_halo=TRUE ) else {
-if ( !file.exists( maskfile ) ) radio_mask <- create_footprint_mask( cv, 'ALPHA_J2000', 'DELTA_J2000', cellsize=1, outfile=my_cat_name, use_minmax=TRUE ) else {
+if ( !file.exists( maskfile ) ) radio_mask <- create_footprint_mask( cv, 'ALPHA_J2000', 'DELTA_J2000', cellsize=mycell, outfile=my_cat_name, method='2dhist', exclude_halo=TRUE ) else {
 	maskbreaks <- readLines( maskfile, n=2 )
 	xbr <- as.numeric( strsplit( maskbreaks[1], ',' )[[1]] )
 	ybr <- as.numeric( strsplit( maskbreaks[2], ',' )[[1]] )
@@ -120,27 +119,20 @@ if ( !file.exists( maskfile ) ) radio_mask <- create_footprint_mask( cv, 'ALPHA_
 	radio_mask <- list( x.breaks=xbr, y.breaks=ybr, counts=mcnts )
 }
 
-video_area <- data.frame( min( radio_mask$x.breaks ), min( radio_mask$y.breaks ), max( radio_mask$x.breaks ), max( radio_mask$y.breaks ) )
-colnames( video_area ) <- c( 'xl', 'yl', 'xr', 'yr' )
 
 ## APPLY MASK TO RADIO DATA -----------------------------------------------------
 
 ## VLA 
 ## start by reading in the catalogue and plotting some things
 vla_file <- 'VLA/13B-308_080916_csv.txt'
-#VLA <- read_VLA_data( vla_file )
-#plot_sky_distribution( parm1='VLA', ra1=VLA$RA, de1=VLA$DEC )
-#plot_distributions( VLA, plotfile='VLA_distributions.pdf' )
-
-snr_cutoff <- 5
-myoutfile <- paste( 'sum_VLA_',paste( format(video_area,digits=3,nsmall=3), collapse='_' ), '_SNR', snr_cutoff, '.csv', sep='' )
-if ( !file.exists( myoutfile ) ) VLA_dat <- prepare_radio_data( vla_file, video_area, snr_cutoff=snr_cutoff, outfile=myoutfile )
-
-
+VLA <- read_VLA_data( vla_file )
+plot_sky_distribution( parm1='VLA', ra1=VLA$RA, de1=VLA$DEC )
+plot_distributions( VLA, plotfile='VLA_distributions.pdf' )
+plot_radio_nearest_neighbours( VLA, plotfile='Nearest_neighbours_VLA.pdf' )
 
 ## sum components by Source_id and replot things
-#if ( !file.exists('sum_VLA.csv') ) sum_VLA <- sum_components( VLA ) else sum_VLA <- read.table( 'sum_VLA.csv', stringsAsFactors=FALSE, header=TRUE, sep=',' )
-plot_sky_distribution( parm1='sum_VLA', ra1=VLA_dat$RA, de1=VLA_dat$DEC )
+if ( !file.exists('sum_VLA.csv') ) sum_VLA <- sum_components( VLA ) else sum_VLA <- read.table( 'sum_VLA.csv', stringsAsFactors=FALSE, header=TRUE, sep=',' )
+plot_sky_distribution( parm1='sum_VLA', ra1=VLA$RA, de1=VLA$DEC )
 plot_distributions( sum_VLA, plotfile='sum_VLA_distributions.pdf' )
 
 ## find nearest neighbours
@@ -203,7 +195,6 @@ for ( my_band in my_bands ){
 	cat( 'Processing band', my_band, '\n' )
     n_radio_sources <- dim( my_radio_cat )[1]
     n_radio_sources_isolated <- length( isolated_index )
-    cat( 100*n_radio_sources_isolated/n_radio_sources, 'percent of sources are isolated/unresolved\n' )
 
 	## make a catalogue for the band
 	band_cat <- gsub( '.fits', paste( '_', my_band, '.csv', sep='' ), master_cat )

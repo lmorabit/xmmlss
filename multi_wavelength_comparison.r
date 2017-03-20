@@ -89,6 +89,8 @@ get_band_error_index <- function( qmc, band_error_names ){
 }
 
 
+
+
 ## also want to plot the detection fraction vs. radio size (DC_Maj)
 
 plot_radio_detection_fractions <- function( qmc, bands, band_names, band_error_names, plotfile='Fraction_of_matches.pdf', radio_limit=0 ){
@@ -284,7 +286,7 @@ compare_w1_with_panstarrs <- function( qmc, radio_limit=0 ){
 }
 
 
-create_footprint_mask <- function( df, ra_col_name, dec_col_name, cellsize=60, tolerance=1e-7, outfile='mask', ra_hours=FALSE, method='2dhist', exclude_halo=TRUE ){
+create_footprint_mask <- function( df, ra_col_name, dec_col_name, cellsize=60, tolerance=1e-7, outfile='mask', ra_hours=FALSE, method='2dhist', exclude_halo=TRUE, use_minmax=FALSE ){
 
     ## allowable methods are '2dhist' (default) and '2dkde'
 
@@ -303,86 +305,102 @@ create_footprint_mask <- function( df, ra_col_name, dec_col_name, cellsize=60, t
     xmax <- max( ra ) + ( cellsize / 60. / 60. )
 
     ymin <- min( dec ) - ( cellsize / 60. / 60. )
-    ymax <- max( dec ) + ( cellsize / 60. / 60. )
+    ymax <- max( dec ) + ( cellsize / 60. / 60. )#
 
-    if ( method == '2dkde' ){
-    
-        cat('Using kernal density estimation.\n' )
-        xnsteps <- ceiling( ( xmax - xmin ) / ( cellsize / 60. / 60. ) ) + 10
-        xrange_padding <- 0.5 * ( xnsteps * ( cellsize / 60. / 60. ) - ( xmax - xmin ) )
-        xl <- xmin - xrange_padding
-        xu <- xmax + xrange_padding 
-
-        ynsteps <- ceiling( ( ymax - ymin ) / ( cellsize / 60. / 60. ) ) + 10
-        yrange_padding <- 0.5 * ( ynsteps * ( cellsize / 60. / 60. ) - ( ymax - ymin ) )
-        yl <- ymin - yrange_padding
-        yu <- ymax + yrange_padding
-
-        ## using kernal density estimate (2d) from MASS package
-        k <- kde2d( ra, dec, n=c(xnsteps,ynsteps), lims=c(xl,xu,yl,yu) )
-        k$z[ which( k$z >= tolerance ) ] <- 1
-        k$z[ which( k$z < tolerance ) ] <- 0
-        image( k,col=gray.colors(2,start=0,end=1) )
-    
-    }
-
-    if ( method == '2dhist' ){
-        ## using 2d histogram from gplots package
-        
+    if ( use_minmax ){
+        cat( 'Using min/max RA/DEC instead of histogram\n' )
         xnsteps <- ceiling( ( xmax - xmin ) / ( cellsize / 60. / 60. ) )
+        xstepsize <- ( xmax - xmin ) / xnsteps 
+        xbr <- seq( xmin, xmax, xstepsize )
         ynsteps <- ceiling( ( ymax - ymin ) / ( cellsize / 60. / 60. ) )
+        ystepsize <- ( ymax - ymin ) / ynsteps 
+        ybr <- seq( ymin, ymax, ystepsize )
+        
+        counts <- matrix( 1, nrow=length(xbr), ncol=length(ybr) )
 
-        k <- hist2d( ra, dec, nbins=c(xnsteps,ynsteps), col=viridis(20), show=FALSE )
-        k$counts[ which( k$counts > 0 ) ] <- 1
+        k <- list( x.breaks=xbr, y.breaks=ybr, counts=counts )        
+        
 
-        ## exclude haloflags
-        if ( exclude_halo ){
-            hf_ra <- ra[ which( hf == 1 ) ]
-            hf_dec <- dec[ which( hf == 1 ) ]
+    } else {
+        if ( method == '2dkde' ){
+        
+            cat('Using kernal density estimation.\n' )
+            xnsteps <- ceiling( ( xmax - xmin ) / ( cellsize / 60. / 60. ) ) + 10
+            xrange_padding <- 0.5 * ( xnsteps * ( cellsize / 60. / 60. ) - ( xmax - xmin ) )
+            xl <- xmin - xrange_padding
+            xu <- xmax + xrange_padding 
 
-            ## create a mask using k$x.breaks and k$y.breaks
-            k_halo <- k$counts
-            k_halo[1:dim(k_halo)[1],1:dim(k_halo)[2]] <- 0
-            for ( ii in 1:length(hf_ra) ){
-                ## first check if it's in the mask area
-                ra_check <- ( hf_ra[ii] >= min( k$x.breaks ) & hf_ra[ii] <= max( k$x.breaks ) )
-                dec_check <- ( hf_dec[ii] >= min( k$y.breaks ) & hf_dec[ii] <= max( k$y.breaks ) )
-                if ( ra_check+dec_check == 2 ){
-                    bin_x <- max( which( k$x.breaks < hf_ra[ii] ) )
-                    bin_y <- max( which( hf_dec[ii] > k$y.breaks ) )
-                    k_halo[bin_x,bin_y] <- 1
-                } # end if
-            } # end for
-        } # end if
-            
-        k$counts <- k$counts - k_halo
+            ynsteps <- ceiling( ( ymax - ymin ) / ( cellsize / 60. / 60. ) ) + 10
+            yrange_padding <- 0.5 * ( ynsteps * ( cellsize / 60. / 60. ) - ( ymax - ymin ) )
+            yl <- ymin - yrange_padding
+            yu <- ymax + yrange_padding
 
-        kim <- raster( list( x=k$x, y=k$y, z=k$counts ) )
-
-        #plot( 1, type='n', xlim=c(37.5,33), ylim=c(-6,-3.5),xlab='RA [deg]', ylab='Dec [deg]')
-        #rect(par("usr")[1], par("usr")[3], par("usr")[2], par("usr")[4], col = "black")
-        #image( kim, col=gray.colors(2,start=0,end=1), add=TRUE )
-        #my_decision <- readline('Is this map acceptable? (y/n): ')
-	my_decision <- 'y'
-        if ( my_decision == 'y' ){
-            plotfile <- paste( strsplit( outfile, '.csv' )[[1]], '_mask_',cellsize,'arcsec.pdf', sep='' )
-            pdf( plotfile )
-            par( mar=c(5,5,2,2) )
-            plot( 1, type='n', xlim=c(37.5,33), ylim=c(-6,-3.5),xlab='RA [deg]', ylab='Dec [deg]')
-            rect(par("usr")[1], par("usr")[3], par("usr")[2], par("usr")[4], col = "black")
-            image( kim, col=gray.colors(2,start=0,end=1), add=TRUE )
-            dev.off()
-            ## save the mask somewhere ....
-            outfile <- paste( strsplit( outfile, '.csv' )[[1]], '_mask_',cellsize,'arcsec.txt', sep='' )
-            writeLines( c( paste( k$x.breaks, collapse="," ), paste( k$y.breaks, collapse="," )), con=outfile )
-            write.table( k$counts, file=outfile, append=TRUE, quote=FALSE, row.names=FALSE, col.names=FALSE )
-
-        } else {
-            cat( 'Not saving plot. Try re-running with a different cell size.\n' )
-            cat( '   (current cell size', cellsize, 'arcsec)\n' )
+            ## using kernal density estimate (2d) from MASS package
+            k <- kde2d( ra, dec, n=c(xnsteps,ynsteps), lims=c(xl,xu,yl,yu) )
+            k$z[ which( k$z >= tolerance ) ] <- 1
+            k$z[ which( k$z < tolerance ) ] <- 0
+            image( k,col=gray.colors(2,start=0,end=1) )
+        
         }
-	#dev.off()
 
+        if ( method == '2dhist' ){
+            ## using 2d histogram from gplots package
+            
+            xnsteps <- ceiling( ( xmax - xmin ) / ( cellsize / 60. / 60. ) )
+            ynsteps <- ceiling( ( ymax - ymin ) / ( cellsize / 60. / 60. ) )
+
+            k <- hist2d( ra, dec, nbins=c(xnsteps,ynsteps), col=viridis(20), show=FALSE )
+            k$counts[ which( k$counts > 0 ) ] <- 1
+
+            ## exclude haloflags
+            if ( exclude_halo ){
+                hf_ra <- ra[ which( hf == 1 ) ]
+                hf_dec <- dec[ which( hf == 1 ) ]
+
+                ## create a mask using k$x.breaks and k$y.breaks
+                k_halo <- k$counts
+                k_halo[1:dim(k_halo)[1],1:dim(k_halo)[2]] <- 0
+                for ( ii in 1:length(hf_ra) ){
+                    ## first check if it's in the mask area
+                    ra_check <- ( hf_ra[ii] >= min( k$x.breaks ) & hf_ra[ii] <= max( k$x.breaks ) )
+                    dec_check <- ( hf_dec[ii] >= min( k$y.breaks ) & hf_dec[ii] <= max( k$y.breaks ) )
+                    if ( ra_check+dec_check == 2 ){
+                        bin_x <- max( which( k$x.breaks < hf_ra[ii] ) )
+                        bin_y <- max( which( hf_dec[ii] > k$y.breaks ) )
+                        k_halo[bin_x,bin_y] <- 1
+                    } # end if
+                } # end for
+            } # end if
+                
+            k$counts <- k$counts - k_halo
+
+            kim <- raster( list( x=k$x, y=k$y, z=k$counts ) )
+
+            #plot( 1, type='n', xlim=c(37.5,33), ylim=c(-6,-3.5),xlab='RA [deg]', ylab='Dec [deg]')
+            #rect(par("usr")[1], par("usr")[3], par("usr")[2], par("usr")[4], col = "black")
+            #image( kim, col=gray.colors(2,start=0,end=1), add=TRUE )
+            #my_decision <- readline('Is this map acceptable? (y/n): ')
+	    my_decision <- 'y'
+            if ( my_decision == 'y' ){
+                plotfile <- paste( strsplit( outfile, '.csv' )[[1]], '_mask_',cellsize,'arcsec.pdf', sep='' )
+                pdf( plotfile )
+                par( mar=c(5,5,2,2) )
+                plot( 1, type='n', xlim=c(37.5,33), ylim=c(-6,-3.5),xlab='RA [deg]', ylab='Dec [deg]')
+                rect(par("usr")[1], par("usr")[3], par("usr")[2], par("usr")[4], col = "black")
+                image( kim, col=gray.colors(2,start=0,end=1), add=TRUE )
+                dev.off()
+                ## save the mask somewhere ....
+                outfile <- paste( strsplit( outfile, '.csv' )[[1]], '_mask_',cellsize,'arcsec.txt', sep='' )
+                writeLines( c( paste( k$x.breaks, collapse="," ), paste( k$y.breaks, collapse="," )), con=outfile )
+                write.table( k$counts, file=outfile, append=TRUE, quote=FALSE, row.names=FALSE, col.names=FALSE )
+
+            } else {
+                cat( 'Not saving plot. Try re-running with a different cell size.\n' )
+                cat( '   (current cell size', cellsize, 'arcsec)\n' )
+            }
+	    #dev.off()
+
+        }
     }
 
     return( k )
@@ -624,4 +642,114 @@ calculate_hist <- function( mydata, mybreaks ){
 
 }
 
+calculate_positional_errors <- function( df, beam_size=5 ){
 
+	## CALCULATE POSITIONAL INFORMATION FOR THE RADIO
+	## -- positional errors: condon
+	#pos_noise <- sqrt( my_radio_cat$e_RA^2. + my_radio_cat$e_DEC^2. )
+	## -- positional errors: ivison
+	beam_size <- 5.
+	pos_noise <- 0.6 * beam_size / ( df$Total_flux / df$e_Total_flux )
+	## add in a calibration errors	
+	sigma_pos <- sqrt( 0.1^2. + pos_noise^2. )
+	r_max <- 5 * max( sqrt( sigma_pos^2 ) )
+	cat( 'r_max is', r_max, 'arcsec.\n' )
+    return( list( r_max=r_max, sigma_pos=sigma_pos ) )
+}
+
+calculate_nm <- function( df, mag_cols ){
+
+    ## get area 
+    area_degrees <- ( max( df$ALPHA_J2000 ) - min( df$ALPHA_J2000 ) ) * ( max( df$DELTA_J2000 ) - min( df$DELTA_J2000 ) )  
+    ## 5.9 square degrees! woo - nice check
+    area_arcsec <- area_degrees * 3600.^2
+    ## that's a lot of arcseconds ...
+
+    ## CALCULATE nm -- density of background sources in VIDEO band
+    ## make the bins
+    mag_bins <- seq( floor(min( df[ , mag_cols[1]] )), ceiling(max( df[,mag_cols[1]] )), 0.4 )
+    ## check that it spans the entire range
+    if ( ceiling(max( df[,mag_cols[1]] )) > max( mag_bins ) ) mag_bins <- c( mag_bins, max(mag_bins)+0.4 )
+    if ( floor(min( df[ , mag_cols[1]] )) < min( mag_bins ) ) mag_bins <- c( min(mag_bins)-0.4, mag_bins )
+    ## histogram the sources and find the source density
+    nmhist <- calculate_hist( df[,mag_cols[1]], mag_bins )
+    nm <- nmhist$counts / area_arcsec  
+    return( nm )
+
+}
+
+calculate_matched_mags <- function( my_band, radio_df, video_df, r_max ){
+
+	n_radio_sources <- dim(radio_df)[1]
+	matched_mags <- paste( 'matched_magnitudes_', my_band, '_r', r_max, '.txt', sep='' )
+	if ( !file.exists( matched_mags ) ){
+		match_magnitudes <- c()
+        radio_ids <- c()
+		## this is the bit that takes a long time ... start a progress bar
+		cat( 'Finding magnitudes of all sources within r_max.\n' )
+		pb <- txtProgressBar(min = 0, max = n_radio_sources, style = 3)
+		for ( ii in 1:n_radio_sources ){
+			## find distances
+			distances <- cenang( radio_df$RA[ii], radio_df$DEC[ii], video_df$ALPHA_J2000, video_df$DELTA_J2000 )*60*60
+			candidate_index <- which( distances <= r_max ) 
+			match_magnitudes <- c( match_magnitudes, band_dat[candidate_index,mag_cols[1]] )
+            radio_ids <- c( radio_ids, rep( radio_df$Source_id[ii], length( candidate_index ) ) )
+		## update the progress bar
+		setTxtProgressBar( pb, ii )
+		}
+		cat( '\n' )
+		close( pb )
+        out_df <- data.frame( radio_ids, match_magnitudes )
+        write.table( out_df, file=matched_mags, row.names=FALSE, col.names=c('radio_id','matched_mag') )
+	} else out_df <- read.table( matched_mags )
+    return( out_df )
+}
+
+
+prepare_radio_data <- function( starting_file, video_area, snr_cutoff=5, outfile='sum_VLA.csv' ){
+
+    VLA <- read_VLA_data( starting_file )
+
+    ## get rid of duplicated rows
+    VLA <- VLA[ which( !duplicated( VLA ) ), ]
+
+    ## find things in video area
+    ra_index <- ( VLA$RA >= video_area$xl & VLA$RA <= video_area$xr )
+    dec_index <- ( VLA$DEC >= video_area$yl & VLA$DEC <= video_area$yr )
+    area_index <- intersect( which( ra_index ), which( dec_index ) )
+    not_area_index <- which( (ra_index + dec_index) != 2 )
+    
+    ##check if things span the border (they do not, at least for K-band)
+    not_area_ids <- VLA$Source_id[not_area_index]
+    area_ids <- VLA$Source_id[area_index]
+    
+    border_check <- which( not_area_ids %in% area_ids )
+    if ( length( border_check ) > 0 ){
+        cat( length( border_check ), 'sources span the border, adding the extra components back in.\n' )
+        border_index <- which( VLA$Source_id %in% not_area_ids[border_check] )
+        area_index <- union( area_index, border_index )
+    } else cat( 'No sources span the border.\n' )
+
+
+    ## and find signal to noise
+    snr <- VLA$Peak_flux / ( VLA$rms / 1e3 ) 
+    good_snr <- which( snr >= snr_cutoff )
+
+
+    ## combine indices
+    good_index <- intersect( area_index, good_snr )
+
+    my_VLA <- VLA[ good_index, ]
+    
+    ## count unique sources
+    n_unique <- length( unique( my_VLA$Source_id ) )
+    
+    ## sum the multiple-component sources 
+    my_sum_VLA <- sum_components( my_VLA, outfile=outfile )
+
+    nn <- find_nearest_neighbours( my_sum_VLA )
+    my_sum_VLA[ 'nearest_neighbour', ] <- nn
+
+    return( my_sum_VLA )
+
+}

@@ -186,7 +186,7 @@ find_largest_size <- function( ra, dec, pa, l_maj, l_min, do_plot=FALSE ){
 }
 
 ## sum up components
-sum_components <- function( df, thresh=5 ){
+sum_components <- function( df, thresh=5, outfile='sum_VLA.csv' ){
 
     ##--- CREATE AN EMPTY DATA FRAME
     sum_df <- data.frame( ID=character(), RA=double(), DEC=double(), e_RA=double(), e_DEC=double(), Total_flux=double(), e_Total_flux=double(), Peak_flux=double(), e_Peak_flux=double(), rms=integer(), DC_Maj=double(), e_DC_Maj=double(), DC_Min=double(), e_DC_Min=double(), DC_PA=double(), e_DC_PA=double(), resolved=integer(), Gaussian_ID=integer(), Source_id=integer(), Island_id=integer(), stringsAsFactors=FALSE )
@@ -208,10 +208,7 @@ sum_components <- function( df, thresh=5 ){
 
         tmp_df <- df[ which( df$Source_id == d_id ), ]
 
-        ## sigma threshold for flux
-        #tmp_df <- tmp_df[ which( tmp_df$Total_flux >= thresh*1e-3*tmp_df$rms ), ]
-
-        ## identify artefacts
+        ## identify artefacts ?
         ## do this using e_RA, e_DEC, e_DC_Maj, e_DC_Min, e_DC_PA
         ## everything gets a score of 1 if it's more than the standard deviation of 
         ## all the components
@@ -289,8 +286,9 @@ sum_components <- function( df, thresh=5 ){
     cat( ' -- There are', n_dup, 'duplicated Source_ids. (', 100*n_dup/length( source_ids ), '%)\n' )
     cat( ' -- There are', n_dup-length(low_score_ids), 'source groups. (', 100*(n_dup-length(low_score_ids))/length( source_ids ), '%)\n' )
 
-    write.table( sum_df, file='sum_VLA.csv', row.names=FALSE, quote=FALSE, sep="," )
+    write.table( sum_df, file=outfile, row.names=FALSE, quote=FALSE, sep="," )
     return( sum_df )
+
 }
 
 cross_match_positional_errors <- function( df, bands, plotfile='Cross-matched-positional-errors.pdf' ){
