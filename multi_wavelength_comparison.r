@@ -436,8 +436,6 @@ apply_mask <- function( df, my_mask, filestem='' ){
     mask_vec <- rep( 0, dim(df)[1] )
     ## loop through data frame
     for ( ii in 1:dim(df)[1] ){
-
-    for ( ii in 1:10 ){
         ## first check if it's in the mask area
         ra_check <- ( ra[ ii ] >= min( my_mask$x.breaks ) & ra[ ii ] <= max( my_mask$x.breaks ) )
         dec_check <- ( dec[ ii ] >= min( my_mask$y.breaks ) & dec[ ii ] <= max( my_mask$y.breaks ) )
