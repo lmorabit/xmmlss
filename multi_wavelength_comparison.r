@@ -286,19 +286,27 @@ compare_w1_with_panstarrs <- function( qmc, radio_limit=0 ){
 }
 
 
-create_footprint_mask <- function( df, ra_col_name, dec_col_name, cellsize=60, tolerance=1e-7, outfile='mask', ra_hours=FALSE, method='2dhist', exclude_halo=TRUE, use_minmax=FALSE ){
+create_footprint_mask <- function( df, cellsize=60, tolerance=1e-7, outfile='mask', ra_hours=FALSE, method='2dhist', exclude_halo=TRUE, use_minmax=FALSE ){
 
     ## allowable methods are '2dhist' (default) and '2dkde'
 
     #df <- read.table( infile, header=TRUE, stringsAsFactors=FALSE, sep=',' )
 
-    ra <- df[ , ra_col_name ]
+    if ( 'RA' %in% colnames( df ) ){
+        ra_name <- 'RA'
+        dec_name <- 'DEC'
+    } else {
+        ra_name <- 'ALPHA_J2000'
+        dec_name <- 'DELTA_J2000'
+    }
+
+    ra <- df[ , ra_name ]
     ## if h
     if ( ra_hours ) ra <- ra*15
-    dec <- df[ , dec_col_name ]
+    dec <- df[ , dec_name ]
     ## cartesian projection
     ra <- ra * cos( dec * pi / 180 )
-    hf <- df[ ,'HALOFLAG' ]
+    if ( exclude_halo ) hf <- df[ ,'HALOFLAG' ]
 
     ## first define the area to use 
     xmin <- min( ra ) - ( cellsize / 60. / 60. )
@@ -370,9 +378,8 @@ create_footprint_mask <- function( df, ra_col_name, dec_col_name, cellsize=60, t
                         k_halo[bin_x,bin_y] <- 1
                     } # end if
                 } # end for
+                k$counts <- k$counts - k_halo
             } # end if
-                
-            k$counts <- k$counts - k_halo
 
             kim <- raster( list( x=k$x, y=k$y, z=k$counts ) )
 
