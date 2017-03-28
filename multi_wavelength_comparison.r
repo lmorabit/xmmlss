@@ -433,10 +433,10 @@ apply_mask <- function( df, my_mask, filestem='' ){
     ## cartesian projection
     ra <- ra * cos( dec * pi / 180 )
 
-
     mask_vec <- rep( 0, dim(df)[1] )
     ## loop through data frame
     for ( ii in 1:dim(df)[1] ){
+
         ## first check if it's in the mask area
         ra_check <- ( ra[ ii ] >= min( my_mask$x.breaks ) & ra[ ii ] <= max( my_mask$x.breaks ) )
         dec_check <- ( dec[ ii ] >= min( my_mask$y.breaks ) & dec[ ii ] <= max( my_mask$y.breaks ) )
@@ -444,7 +444,7 @@ apply_mask <- function( df, my_mask, filestem='' ){
             ## ra will always be positive 
             bin_x <- max( which( my_mask$x.breaks < ra[ ii ] ) )
             ## dec can be negative
-            bin_y <- max( which( dec[ ii ] >= my_mask$y.breaks ) ) ## all values are greater than zero
+            bin_y <- max( which( dec[ ii ] > my_mask$y.breaks ) ) ## all values are greater than zero
             ## case 3: if they straddle zero ... ?
             if ( my_mask$counts[bin_x,bin_y] == 1 ) mask_vec[ii] <- 1            
         }
