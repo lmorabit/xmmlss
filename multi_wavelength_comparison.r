@@ -617,7 +617,7 @@ find_Q0_fleuren <- function( radio_df, my_mask, video_df, radii ){
 #    y <- 1 - no_counterpart_ratio
     y <- no_counterpart_ratio
 #    result <- nlsLM( y ~ 1 - q_0 * ( 1 - exp( -radii^2 / ( 2 * sig^2 ) ) ) + a , start=list( q_0 = 1.3, sig=10, a=0.1 ) )
-    result <- nlsLM( y ~ q_0 * ( 1 - exp( -radii^2 / ( 2 * sig^2 ) ) ) + a , start=list( q_0 = 1.3, sig=10, a=0.1 ) )
+    result <- nlsLM( y ~ ( 1 - q_0 ) * ( 1 - exp( -radii^2 / ( 2 * sig^2 ) ) ) + a , start=list( q_0 = 1, sig=10, a=0.2 ) )
     ## gives q_0 = 0.7492
     coeffs <- coef( summary( result ) )
     q_0 <- coeffs[1,1]
@@ -635,7 +635,7 @@ find_Q0_fleuren <- function( radio_df, my_mask, video_df, radii ){
     lplot( radii, RANDOM_no_counterparts/dim(radio_df)[1], type='l', col=mycols[2], x_lab='Radius [arcsec]', y_lab='1-Q(r)', lwd=3, lty=3 )
     lines( radii, REAL_no_counterparts/dim(radio_df)[1], col=mycols[4], lwd=3 )
     lines( radii, predict( result ), lwd=3, col='gray' )
-    points( radii, 1 - no_counterpart_ratio, pch=18, cex=1.5 )
+    points( radii, no_counterpart_ratio, pch=18, cex=1.5 )
     legend( 'topright', c( 'Random', 'Real', 'Data', 'Fit' ), col=c(mycols[2],mycols[4],'black','gray'), lty=c(3,1,NA,1), pch=c(NA,NA,18,NA), lwd=3, bty='n', cex=1.25 )
     text( max(radii)/2-1, 0.9, bquote( Q[0] == .(q_0) %+-% .(q_0_err) ) )
     dev.off()
