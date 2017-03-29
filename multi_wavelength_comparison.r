@@ -614,8 +614,10 @@ find_Q0_fleuren <- function( radio_df, my_mask, video_df, radii ){
     }
 
     ## fit the model to the data
-    y <- 1 - no_counterpart_ratio
-    result <- nlsLM( y ~ 1 - q_0 * ( 1 - exp( -radii^2 / ( 2 * sig^2 ) ) ) + a , start=list( q_0 = 1.3, sig=10, a=0.1 ) )
+#    y <- 1 - no_counterpart_ratio
+    y <- no_counterpart_ratio
+#    result <- nlsLM( y ~ 1 - q_0 * ( 1 - exp( -radii^2 / ( 2 * sig^2 ) ) ) + a , start=list( q_0 = 1.3, sig=10, a=0.1 ) )
+    result <- nlsLM( y ~ q_0 * ( 1 - exp( -radii^2 / ( 2 * sig^2 ) ) ) + a , start=list( q_0 = 1.3, sig=10, a=0.1 ) )
     ## gives q_0 = 0.7492
     coeffs <- coef( summary( result ) )
     q_0 <- coeffs[1,1]
