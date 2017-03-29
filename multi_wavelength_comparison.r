@@ -370,11 +370,11 @@ create_footprint_mask <- function( df, cellsize=60, tolerance=1e-7, outfile='mas
                 k_halo[1:dim(k_halo)[1],1:dim(k_halo)[2]] <- 0
                 for ( ii in 1:length(hf_ra) ){
                     ## first check if it's in the mask area
-                    ra_check <- ( hf_ra[ii] >= min( k$x.breaks ) & hf_ra[ii] <= max( k$x.breaks ) )
-                    dec_check <- ( hf_dec[ii] >= min( k$y.breaks ) & hf_dec[ii] <= max( k$y.breaks ) )
+                    ra_check <- ( hf_ra[ii] >= min( k$x.breaks ) & hf_ra[ii] < max( k$x.breaks ) )
+                    dec_check <- ( hf_dec[ii] >= min( k$y.breaks ) & hf_dec[ii] < max( k$y.breaks ) )
                     if ( ra_check+dec_check == 2 ){
                         bin_x <- max( which( k$x.breaks <= hf_ra[ii] ) )
-                        bin_y <- max( which( hf_dec[ii] >= k$y.breaks[1:dim(k$counts)[2]] ) )
+                        bin_y <- max( which( k$y.breaks <= hf_dec[ii] ) )
                         k_halo[bin_x,bin_y] <- 1
                     } # end if
                 } # end for
@@ -437,15 +437,12 @@ apply_mask <- function( df, my_mask, filestem='' ){
     ## loop through data frame
     for ( ii in 1:dim(df)[1] ){
         ## first check if it's in the mask area
-        ra_check <- ( ra[ ii ] >= min( my_mask$x.breaks ) & ra[ ii ] <= max( my_mask$x.breaks ) )
-        dec_check <- ( dec[ ii ] >= min( my_mask$y.breaks ) & dec[ ii ] <= max( my_mask$y.breaks ) )
+        ra_check <- ( ra[ ii ] >= min( my_mask$x.breaks ) & ra[ ii ] < max( my_mask$x.breaks ) )
+        dec_check <- ( dec[ ii ] >= min( my_mask$y.breaks ) & dec[ ii ] < max( my_mask$y.breaks ) )
         if ( ra_check+dec_check == 2 ){
-            ## ra will always be positive 
             bin_x <- max( which( my_mask$x.breaks <= ra[ ii ] ) )
-            ## dec can be negative
-            bin_y <- max( which( dec[ ii ] >= my_mask$y.breaks[1:dim(my_mask$counts)[2]] ) ) ## all values are greater than zero
-            ## case 3: if they straddle zero ... ?
-            if ( my_mask$counts[bin_x,bin_y] == 1 ) mask_vec[ii] <- 1            
+            bin_y <- max( which( my_mask$y.breaks <= dec[ ii ] ) ) 
+            if ( my_mask$counts[bin_x,bin_y] == 1 ) mask_vec[ii] <- 1           
         }
     }
     masked_df <- df[ which( mask_vec == 1 ), ]
