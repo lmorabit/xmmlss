@@ -30,8 +30,8 @@ if ( make_footprint_maps ){
     for ( snrc in snr_cols ){
         tmp_dat <- snr_dat[ which( snr_dat[ , snrc ] >= 5 ), ]
         my_mask <- create_footprint_mask( tmp_dat, cellsize=40, tolerance=1e-7, outfile=snrc, ra_hours=FALSE, method='2dhist', exclude_halo=FALSE, use_minmax=FALSE )
-    } # end if
-} # end for
+    } # end for
+} # end if
 ##################################
 
 ################# STAR GALAXY SEPARATION
@@ -70,7 +70,7 @@ for ( my_band in my_bands ){
     keep_bands <- paste( my_band, mag_col_to_use, sep='_' )
     keep_band_errs <- paste( my_band, mag_err_col_to_use, sep='_' )
     keep_info_cols <- paste( my_band, info_cols, sep='_' )
-    keep_cols <- c( basic_cols, keep_bands, keep_band_errs, paste( my_band, '_SNR', sep='' ), info_cols )
+    keep_cols <- c( basic_cols, keep_bands, keep_band_errs, paste( my_band, '_SNR', sep='' ), paste( my_band, info_cols, sep='_' ) )
 
     band_cat <- gsub( '.fits', paste( '_', my_band, '.csv', sep='' ), galaxy_cat )
     if ( !file.exists( band_cat ) ){
