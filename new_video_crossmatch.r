@@ -64,15 +64,19 @@ my_bands <- c( 'K' )
 
 ## column information
 basic_cols <- c( 'ID', 'ALPHA_J2000', 'DELTA_J2000', 'HALOFLAG', 'CONTEXT' )
+info_cols <- c( 'FLAGS', 'CLASS_STAR' )
 
 for ( my_band in my_bands ){
     keep_bands <- paste( my_band, mag_col_to_use, sep='_' )
     keep_band_errs <- paste( my_band, mag_err_col_to_use, sep='_' )
-    keep_cols <- c( basic_cols, keep_bands, keep_band_errs, paste( my_band, '_SNR', sep='' ) )
+    keep_info_cols <- paste( my_band, info_cols, sep='_' )
+    keep_cols <- c( basic_cols, keep_bands, keep_band_errs, paste( my_band, '_SNR', sep='' ), info_cols )
 
     band_cat <- gsub( '.fits', paste( '_', my_band, '.csv', sep='' ), galaxy_cat )
     if ( !file.exists( band_cat ) ){
-        ss <- paste( stilts_exec, ' tpipe in=', galaxy_cat, ' out=', kband_cat, ' omode=out ofmt=csv cmd=\'select ', my_band, '_MAG_AUTO<99\' cmd=\'keepcols "', paste( keep_cols, collapse=' ' ), '"', "\' ", sep='' )
+        ## get rid of things with MAG_AUTO = 99
+        ## get rid of things with FLAGS > 4
+        ss <- paste( stilts_exec, ' tpipe in=', galaxy_cat, ' out=', kband_cat, ' omode=out ofmt=csv cmd=\'select ', my_band, '_FLAGS<1\' cmd=\'select ', my_band, '_MAG_AUTO<99\' cmd=\'keepcols "', paste( keep_cols, collapse=' ' ), '"', "\' ", sep='' )
         system( ss )
     } # end if
 } # end for
