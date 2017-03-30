@@ -76,7 +76,7 @@ for ( my_band in my_bands ){
     if ( !file.exists( band_cat ) ){
         ## get rid of things with MAG_AUTO = 99
         ## get rid of things with FLAGS > 4
-        ss <- paste( stilts_exec, ' tpipe in=', galaxy_cat, ' out=', kband_cat, ' omode=out ofmt=csv cmd=\'select ', my_band, '_FLAGS<1\' cmd=\'select ', my_band, '_MAG_AUTO<99\' cmd=\'keepcols "', paste( keep_cols, collapse=' ' ), '"', "\' ", sep='' )
+        ss <- paste( stilts_exec, ' tpipe in=', galaxy_cat, ' out=', band_cat, ' omode=out ofmt=csv cmd=\'select ', my_band, '_FLAGS<1\' cmd=\'select ', my_band, '_MAG_AUTO<99\' cmd=\'keepcols "', paste( keep_cols, collapse=' ' ), '"', "\' ", sep='' )
         system( ss )
     } # end if
 } # end for
