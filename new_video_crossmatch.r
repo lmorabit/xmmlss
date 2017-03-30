@@ -37,7 +37,7 @@ if ( make_footprint_maps ){
 ################# STAR GALAXY SEPARATION
 ## match the master cat with the star ID catalogue and remove where GS_CLASS==1
 
-if ( !file.exists( gs_class_cat ) ){
+if ( !file.exists( 'stars.fits' ) ){
     ## make a star catalogue
     ss <- paste( stilts_exec, ' tpipe in=', gs_class_cat, ' ifmt=csv out=stars.fits cmd=\'select GS_CLASS==1\'', sep='' )
     system( ss )
