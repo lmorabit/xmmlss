@@ -183,7 +183,6 @@ for ( my_band in my_bands ){
     nm <- calculate_nm( masked_band_dat_fivesig, mag_cols, mag_bins )
 
     ## FIND MATCHED MAGNITUDES
-    mag_bins <- seq( floor(min( masked_band_dat_fivesig[ , mag_cols[1]] )), ceiling(max( masked_band_dat_fivesig[,mag_cols[1]] )), 0.4 )
     mag_matches <- calculate_matched_mags( my_band, my_radio_cat, masked_band_dat_fivesig, r_max )
     match_magnitudes <- mag_matches$match_magnitudes 
     match_radio_sources <- mag_matches$radio_id
@@ -274,9 +273,6 @@ for ( my_band in my_bands ){
 	cat( '\n' )
 
 } ## end for (my_bands)
-
-
-
 
 
 final_matches <- data.frame( radio_ID, match_band, video_ID, lr_value, lr_rel, n_cont, stringsAsFactors=FALSE )

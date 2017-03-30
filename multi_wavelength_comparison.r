@@ -637,7 +637,7 @@ find_Q0_fleuren <- function( radio_df, my_mask, video_df, radii ){
     lines( radii, predict( result ), lwd=3, col='gray' )
     points( radii, no_counterpart_ratio, pch=18, cex=1.5 )
     legend( 'topright', c( 'Random', 'Real', 'Data', 'Fit' ), col=c(mycols[2],mycols[4],'black','gray'), lty=c(3,1,NA,1), pch=c(NA,NA,18,NA), lwd=3, bty='n', cex=1.25 )
-    text( max(radii)/2-1, 0.9, bquote( Q[0] == .(q_0) %+-% .(q_0_err) ) )
+    text( max(radii)/2-0.5, 0.6, bquote( Q[0] == .(q_0) %+-% .(q_0_err) ) )
     dev.off()
 
     return( q0_df )    
