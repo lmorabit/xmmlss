@@ -632,7 +632,7 @@ find_Q0_fleuren <- function( radio_df, my_mask, video_df, radii ){
 
     mycols <- viridis( 6 )
     pdf( paste( 'Q_0_estimate_', my_band, '.pdf', sep='' ) )
-    lplot( radii, RANDOM_no_counterparts/dim(radio_df)[1], type='l', col=mycols[2], x_lab='Radius [arcsec]', y_lab='1-Q(r)', lwd=3, lty=3 )
+    lplot( radii, RANDOM_no_counterparts/dim(radio_df)[1], type='l', col=mycols[2], x_lab='Radius [arcsec]', y_lab='1-Q(r)', lwd=3, lty=3, ylim=c(0,1) )
     lines( radii, REAL_no_counterparts/dim(radio_df)[1], col=mycols[4], lwd=3 )
     lines( radii, predict( result ), lwd=3, col='gray' )
     points( radii, no_counterpart_ratio, pch=18, cex=1.5 )
@@ -647,7 +647,7 @@ find_Q0_fleuren <- function( radio_df, my_mask, video_df, radii ){
 calculate_hist <- function( mydata, mybreaks ){
 
     mycounts <- c()
-    for ( ii in 2:length(mybreaks) ) mycounts <- c( mycounts, length( which( mydata > mybreaks[ii-1] & mydata <= mybreaks[ii] ) ) )
+    for ( ii in 2:length(mybreaks) ) mycounts <- c( mycounts, length( which( mydata >= mybreaks[ii-1] & mydata < mybreaks[ii] ) ) )
     break_step <- mybreaks[2] - mybreaks[1]
     mymids <- mybreaks[1:(length(mybreaks)-1)]+0.5*break_step
 
@@ -671,7 +671,7 @@ calculate_positional_errors <- function( df, beam_size=5 ){
     return( list( r_max=r_max, sigma_pos=sigma_pos ) )
 }
 
-calculate_nm <- function( df, mag_cols ){
+calculate_nm <- function( df, mag_cols, mag_bins ){
 
     ## get area 
     area_degrees <- ( max( df$ALPHA_J2000 ) - min( df$ALPHA_J2000 ) ) * ( max( df$DELTA_J2000 ) - min( df$DELTA_J2000 ) )  
@@ -680,15 +680,20 @@ calculate_nm <- function( df, mag_cols ){
     ## that's a lot of arcseconds ...
 
     ## CALCULATE nm -- density of background sources in VIDEO band
-    ## make the bins
-    mag_bins <- seq( floor(min( df[ , mag_cols[1]] )), ceiling(max( df[,mag_cols[1]] )), 0.4 )
-    ## check that it spans the entire range
-    if ( ceiling(max( df[,mag_cols[1]] )) > max( mag_bins ) ) mag_bins <- c( mag_bins, max(mag_bins)+0.4 )
-    if ( floor(min( df[ , mag_cols[1]] )) < min( mag_bins ) ) mag_bins <- c( min(mag_bins)-0.4, mag_bins )
     ## histogram the sources and find the source density
     nmhist <- calculate_hist( df[,mag_cols[1]], mag_bins )
     nm <- nmhist$counts / area_arcsec  
     return( nm )
+
+}
+
+make_mag_bins <- function( df, mag_cols ){
+
+    mag_bins <- seq( floor(min( df[ , mag_cols[1]] )), ceiling(max( df[,mag_cols[1]] )), 0.4 )
+    ## check that it spans the entire range
+    if ( ceiling(max( df[ ,mag_cols[1]] )) > max( mag_bins ) ) mag_bins <- c( mag_bins, max(mag_bins)+0.4 )
+    if ( floor(min( df[ ,mag_cols[1]] )) < min( mag_bins ) ) mag_bins <- c( min(mag_bins)-0.4, mag_bins )
+    return( mag_bins )
 
 }
 
