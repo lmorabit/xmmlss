@@ -671,13 +671,7 @@ calculate_positional_errors <- function( df, beam_size=5 ){
     return( list( r_max=r_max, sigma_pos=sigma_pos ) )
 }
 
-calculate_nm <- function( df, mag_cols, mag_bins ){
-
-    ## get area 
-    area_degrees <- ( max( df$ALPHA_J2000 ) - min( df$ALPHA_J2000 ) ) * ( max( df$DELTA_J2000 ) - min( df$DELTA_J2000 ) )  
-    ## 5.9 square degrees! woo - nice check
-    area_arcsec <- area_degrees * 3600.^2
-    ## that's a lot of arcseconds ...
+calculate_nm <- function( df, mag_cols, mag_bins, area_arcsec ){
 
     ## CALCULATE nm -- density of background sources in VIDEO band
     ## histogram the sources and find the source density
@@ -700,7 +694,7 @@ make_mag_bins <- function( df, mag_cols ){
 calculate_matched_mags <- function( my_band, radio_df, video_df, r_max ){
 
 	n_radio_sources <- dim(radio_df)[1]
-	matched_mags <- paste( 'matched_magnitudes_', my_band, '_r', r_max, '.txt', sep='' )
+	matched_mags <- paste( 'matched_magnitudes_', my_band, '_r', format( r_max, digits=3, nmall=2 ), '.txt', sep='' )
 	if ( !file.exists( matched_mags ) ){
 		match_magnitudes <- c()
         radio_ids <- c()
@@ -711,7 +705,7 @@ calculate_matched_mags <- function( my_band, radio_df, video_df, r_max ){
 			## find distances
 			distances <- cenang( radio_df$RA[ii], radio_df$DEC[ii], video_df$ALPHA_J2000, video_df$DELTA_J2000 )*60*60
 			candidate_index <- which( distances <= r_max ) 
-			match_magnitudes <- c( match_magnitudes, band_dat[candidate_index,mag_cols[1]] )
+			match_magnitudes <- c( match_magnitudes, video_df[candidate_index,mag_cols[1]] )
             radio_ids <- c( radio_ids, rep( radio_df$Source_id[ii], length( candidate_index ) ) )
 		## update the progress bar
 		setTxtProgressBar( pb, ii )

@@ -19,6 +19,7 @@ my_bands <- c('J','H','K','U','G','R','I','ZC','ZV','Y','YC')
 ## make a catalogue with just the SNR columns, ID, and RA/DEC for mask-making purposes
 make_footprint_maps <- FALSE
 if ( make_footprint_maps ){
+    cat( 'Making footprint maps ... ' )
     snr_cols <- paste( c( 'ID', 'ALPHA_J2000', 'DELTA_J2000', paste( my_bands, '_SNR', sep='' ) ), collapse=' ' )
     ss <- paste( stilts_exec, " tpipe in=", master_cat, " out=", snr_cat, " omode=out ofmt=csv", ' cmd=\'keepcols "', snr_cols, '"', "\' ", sep='' )
     system( ss )
@@ -31,11 +32,14 @@ if ( make_footprint_maps ){
         tmp_dat <- snr_dat[ which( snr_dat[ , snrc ] >= 5 ), ]
         my_mask <- create_footprint_mask( tmp_dat, cellsize=40, tolerance=1e-7, outfile=snrc, ra_hours=FALSE, method='2dhist', exclude_halo=FALSE, use_minmax=FALSE )
     } # end for
+    cat( 'done.\n' )
 } # end if
 ##################################
 
 ################# STAR GALAXY SEPARATION
 ## match the master cat with the star ID catalogue and remove where GS_CLASS==1
+
+cat( 'Using the star/galaxy sepration to remove stars ... \n' )
 
 if ( !file.exists( 'stars.fits' ) ){
     ## make a star catalogue from the star/galaxy separation
@@ -50,6 +54,8 @@ if ( !file.exists( galaxy_cat ) ){
     system( ss )
 }
 
+cat( ' ... done.\n' )
+
 ## OLD STUFF
 ## keep only things with HALOFLAG==0 
 #galaxy_nohalo_cat <- gsub( '.fits', '_HALOFLAG0.fits', galaxy_cat )
@@ -59,6 +65,8 @@ if ( !file.exists( galaxy_cat ) ){
 ##################################
 
 ################# MAKE A K-BAND CATALOGUE
+
+cat( 'Making a K-band catalogue to use as a mask ... \n' )
 
 my_bands <- c( 'K' )
 
@@ -81,28 +89,35 @@ for ( my_band in my_bands ){
     } # end if
 } # end for
 
+cat( ' ... done. Reading in data ... ' )
 ## read in data -- just K-band at the moment!
 kband_dat <- read.table( band_cat, header=TRUE, stringsAsFactors=FALSE, sep=',' )
+cat( 'done.\n' )
 
 ##################################
 
 ################# MAKE A MASK FROM THE K-BAND CATALOGUE
 
 ## make a mask
+cat( 'Making a mask to use for the radio data ... ' )
 radio_mask <- create_footprint_mask( kband_dat, cellsize=40, tolerance=1e-7, outfile='Kband', ra_hours=FALSE, method='2dhist', exclude_halo=TRUE, use_minmax=FALSE )
 fivesig_index <- which( kband_dat$K_SNR >= 5 )
 radio_mask_fivesig <- create_footprint_mask( kband_dat[fivesig_index,], cellsize=40, tolerance=1e-7, outfile='Kband_5sig', ra_hours=FALSE, method='2dhist', exclude_halo=TRUE, use_minmax=FALSE )
 
 video_area <- data.frame( min( radio_mask$x.breaks ), min( radio_mask$y.breaks ), max( radio_mask$x.breaks ), max( radio_mask$y.breaks ) )
 colnames( video_area ) <- c( 'xl', 'yl', 'xr', 'yr' )
+cat( 'done.\n' )
 
 ## apply the mask to the video data (as a check)
+cat( 'Applying mask to K-band data ... ' )
 masked_kband <- apply_mask( kband_dat, radio_mask_fivesig, filestem='kband_5sig' )
+cat( 'done.\n' )
 
 ##################################
 
 ################# READ IN RADIO DATA AND PREPARE
 
+cat( 'Preparing the VLA data!\n' )
 ## read in VLA data
 ## master radio file
 vla_file <- 'VLA/13B-308_080916_csv.txt'
@@ -111,16 +126,19 @@ snr_cutoff <- 5
 myoutfile <- paste( 'sum_VLA_',paste( format(video_area,digits=3,nsmall=3), collapse='_' ), '_SNR', snr_cutoff, '.csv', sep='' )
 if ( !file.exists( myoutfile ) ) VLA_dat <- prepare_radio_data( vla_file, video_area, snr_cutoff=snr_cutoff, outfile=myoutfile ) else VLA_dat <- read.table( myoutfile, stringsAsFactors=FALSE, header=TRUE, sep=',' )
 
+cat( 'Applying the mask to the radio data ... ' )
 ## use fivesig mask???
 if ( !file.exists('VLA_fivesig_masked.csv') ) masked_VLA_fivesig <- apply_mask( VLA_dat, radio_mask_fivesig, filestem='VLA_fivesig' ) else masked_VLA_fivesig <- read.table( 'VLA_fivesig_masked.csv', stringsAsFactors=FALSE, header=TRUE, sep=',' )
 ## or normal mask???
 if ( !file.exists('VLA_masked.csv') ) masked_VLA <- apply_mask( VLA_dat, radio_mask, filestem='VLA' ) else masked_VLA <- read.table( 'VLA_masked.csv', stringsAsFactors=FALSE, header=TRUE, sep=',' )
+cat( 'done.\n' )
 
 ###################################
 
 ################# FIND ISOLATED, UNRESOLVED SOURCES FOR CROSS-MATCHING
 
-my_radio_cat <- masked_VLA
+cat( 'Finding isolated, unresolved sources for estimating LR values ... \n' )
+my_radio_cat <- masked_VLA_fivesig
 
 #h <- hist( my_radio_cat$nearest_neighbour, breaks=60, prob=TRUE, plot=FALSE )
 h <- hist( my_radio_cat$nearest_neighbour, breaks=60, plot=FALSE )
@@ -138,6 +156,8 @@ isolated_index <- Reduce( intersect, i_list )
 
 cat( 'There are', length( isolated_index ), 'isolated, unresolved sources within the K-band mask.\n' )
 
+radio_cat_isolated <- my_radio_cat[ isolated_index ]
+
 ##################################
 
 ################# CROSS-MATCHING!
@@ -153,9 +173,10 @@ n_cont <- c()
 
 my_bands <- c( 'K' )
 
+cat( 'Beginning LR matching ... \n' )
 for ( my_band in my_bands ){
 
-	cat( 'Processing band', my_band, '\n' )
+	cat( ' ... Processing band', my_band, '\n' )
     n_radio_sources <- dim( my_radio_cat )[1]
     n_radio_sources_isolated <- length( isolated_index )
     cat( 100*n_radio_sources_isolated/n_radio_sources, 'percent of sources are isolated/unresolved\n' )
@@ -184,7 +205,8 @@ for ( my_band in my_bands ){
     mag_bins <- make_mag_bins( masked_band_dat_fivesig, mag_cols )
 
     ## FIND n(m)
-    nm <- calculate_nm( masked_band_dat_fivesig, mag_cols, mag_bins )
+    video_area_arcsec <- length( which( radio_mask_fivesig$counts == 1 ) ) * 40 * 40 
+    nm <- calculate_nm( masked_band_dat_fivesig, mag_cols, mag_bins, video_area_arcsec )
 
     ## FIND MATCHED MAGNITUDES
     mag_matches <- calculate_matched_mags( my_band, my_radio_cat, masked_band_dat_fivesig, r_max )
@@ -220,18 +242,17 @@ for ( my_band in my_bands ){
 	## FIND RATIO OF q(m)/n(m)
 	qm_nm <- qm / nm
 
-
 	## plot some things so far
 	pdf( paste( 'LR_values_', my_band, '.pdf',sep='' ) )
 	m <- rbind( c(1), c(2), c(3) )
 	layout(m)
     ## plot 1
-	lplot( tmhist$mids, log10( total_m ), xlim=c(13,22.2), y_lab='log(N(counterparts))', type='s', lwd=2, col='gray' )
+	lplot( tmhist$mids, log10( total_m ), xlim=c(13,22.2), y_lab='log(N(counterparts))', type='s', lwd=2, col='gray', ylim=c(-1,3.5) )
 	lines( tmhist$mids, log10( real_m ), lty=2, lwd=2, type='s' )
 	lines( tmhist$mids, log10( background ), lty=3, lwd=2, type='s' )
 	legend( 'topleft', c('Total','Real','Background'), col=c('gray','black','black'), lwd=2, lty=c(1,2,3), bty='n' )
     ## plot 2
-	lplot( tmhist$mids, log10( qm_nm ), xlim=c(13,22.2), y_lab='log(P(m)=q(m)/n(m))', type='s', lwd=2 ) ##, ylim=c(2,3) )
+	lplot( tmhist$mids, log10( qm_nm ), xlim=c(13,22.2), y_lab='log(P(m)=q(m)/n(m))', type='s', lwd=2, ylim=c(1,3) )
     ## plot 3
 	lplot( tmhist$mids, log10( qm ), xlim=c(13,22.2), x_lab='Ks mag', y_lab='log(q(m))', type='s', lwd=2 )
 	dev.off()
@@ -276,11 +297,14 @@ for ( my_band in my_bands ){
 	close( pb )
 	cat( '\n' )
 
+    cat( ' ... done processing band.\n' )
+
 } ## end for (my_bands)
 
-
+cat( 'Writing final matches to a file.\n )
 final_matches <- data.frame( radio_ID, match_band, video_ID, lr_value, lr_rel, n_cont, stringsAsFactors=FALSE )
 write.table( final_matches, file='final_matches.csv', quote=FALSE, row.names=FALSE, sep=',' )
+cat( 'done.\n' )
 
 
 
