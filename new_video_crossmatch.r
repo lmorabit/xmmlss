@@ -301,7 +301,7 @@ for ( my_band in my_bands ){
 
 } ## end for (my_bands)
 
-cat( 'Writing final matches to a file.\n )
+cat( 'Writing final matches to a file.\n' )
 final_matches <- data.frame( radio_ID, match_band, video_ID, lr_value, lr_rel, n_cont, stringsAsFactors=FALSE )
 write.table( final_matches, file='final_matches.csv', quote=FALSE, row.names=FALSE, sep=',' )
 cat( 'done.\n' )
