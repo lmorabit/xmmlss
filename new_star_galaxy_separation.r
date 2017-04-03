@@ -9,8 +9,8 @@ star_galaxy_separation <- function( master_cat ){
     ## --- housekeeping: index appropriately
 
     ## get the subset of the master catalogue with good SNR and no HALOFLAG
-    ## and FLAGS < 1
-    ss <- paste( stilts_exec, " tpipe in=", master_cat, " out=cats/GRJK_star_galaxy.csv omode=out ofmt=csv cmd=\'select J_SNR>=5\' cmd=\'select K_SNR>=5\' cmd=\'select G_SNR>=5\' cmd=\'select R_SNR>=5\' cmd=\'select J_FLAGS<1\' cmd=\'select K_FLAGS<1\' cmd=\'select G_FLAGS<1\' cmd=\'select R_FLAGS<1\' cmd=\'select HALOFLAG==0\'", sep='' )
+    ## and FLAGS < 5
+    ss <- paste( stilts_exec, " tpipe in=", master_cat, " out=cats/GRJK_star_galaxy.csv omode=out ofmt=csv cmd=\'select J_SNR>=5\' cmd=\'select K_SNR>=5\' cmd=\'select G_SNR>=5\' cmd=\'select R_SNR>=5\' cmd=\'select J_FLAGS<5\' cmd=\'select K_FLAGS<5\' cmd=\'select G_FLAGS<5\' cmd=\'select R_FLAGS<5\' cmd=\'select HALOFLAG==0\'", sep='' )
     system( ss )
 
     ## read in the catalogue
@@ -98,12 +98,18 @@ star_galaxy_separation <- function( master_cat ){
     locus_values[ which( g_minus_r > l2 ) ] <- c3 
     
     add_offset <- 0.14
-    star_index <- which( J_minus_K < (locus_values+add_offset) )
+    star_index <- which( J_minus_K < (locus_values+add_offset) )keepc
     gs_class <- rep( 0, length( J_minus_K ) )
     gs_class[ star_index ] <- 1
     
     gs_df <- data.frame( my_dat$ID, gs_class )
     colnames( gs_df ) <- c( 'SID', 'GS_CLASS' )
     write.table( gs_df, file='GSCLASS.csv', row.names=FALSE, sep=',', quote=FALSE )
+
+    ## also get things with CLASS_STAR > 0.97 and K_MAG_AUTO < 20 
+    #ss <- paste( stilts_exec, " tpipe in=", master_cat, " out=cats/CLASS_STAR_star_galaxy.csv omode=out ofmt=csv cmd=\'select K_CLASS_STAR>0.97\' cmd=\'keepcols ", '"ID"\'', sep='' )  ## 26980
+    ss <- paste( stilts_exec, " tpipe in=", master_cat, " out=cats/CLASS_STAR_star_galaxy.csv omode=out ofmt=csv cmd=\'select K_CLASS_STAR>0.97\' cmd=\'select K_MAG_AUTO<20\' cmd=\'keepcols ", '"ID"\'', sep='' )  ## 12691
+    system( ss )
+    
 
 }
