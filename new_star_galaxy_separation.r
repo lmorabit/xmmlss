@@ -98,7 +98,7 @@ star_galaxy_separation <- function( master_cat ){
     locus_values[ which( g_minus_r > l2 ) ] <- c3 
     
     add_offset <- 0.14
-    star_index <- which( J_minus_K < (locus_values+add_offset) )keepc
+    star_index <- which( J_minus_K < (locus_values+add_offset) )
     gs_class <- rep( 0, length( J_minus_K ) )
     gs_class[ star_index ] <- 1
     
