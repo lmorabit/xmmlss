@@ -38,7 +38,7 @@ if ( make_footprint_maps ){
 ## match the master cat with the star ID catalogue and remove where GS_CLASS==1
 
 if ( !file.exists( 'stars.fits' ) ){
-    ## make a star catalogue
+    ## make a star catalogue from the star/galaxy separation
     ss <- paste( stilts_exec, ' tpipe in=', gs_class_cat, ' ifmt=csv out=stars.fits cmd=\'select GS_CLASS==1\'', sep='' )
     system( ss )
 }
@@ -151,9 +151,7 @@ lr_value <- c()
 lr_rel <- c()
 n_cont <- c()
 
-
 my_bands <- c( 'K' )
-
 
 for ( my_band in my_bands ){
 
@@ -165,6 +163,8 @@ for ( my_band in my_bands ){
     ## read the catalogue
     band_cat <- Sys.glob( paste('cats/*Galaxies_',my_band,'.csv',sep='' ) )
     band_dat <- read.table( band_cat, header=TRUE, stringsAsFactors=FALSE, sep=',' )
+    ## and use only things where HALOFLAG==0
+    band_dat <- band_dat[ which( band_dat$HALOFLAG == 0 ), ]
 
     ## get the right magnitude columns
     mag_cols <- c( paste( my_band, mag_col_to_use, sep='_' ), paste( my_band, mag_err_col_to_use, sep='_' ) )
@@ -231,7 +231,7 @@ for ( my_band in my_bands ){
 	lines( tmhist$mids, log10( background ), lty=3, lwd=2, type='s' )
 	legend( 'topleft', c('Total','Real','Background'), col=c('gray','black','black'), lwd=2, lty=c(1,2,3), bty='n' )
     ## plot 2
-	lplot( tmhist$mids, log10( qm_nm ), xlim=c(13,22.2), y_lab='log(P(m)=q(m)/n(m))', type='s', lwd=2, ylim=c(2,3) )
+	lplot( tmhist$mids, log10( qm_nm ), xlim=c(13,22.2), y_lab='log(P(m)=q(m)/n(m))', type='s', lwd=2 ) ##, ylim=c(2,3) )
     ## plot 3
 	lplot( tmhist$mids, log10( qm ), xlim=c(13,22.2), x_lab='Ks mag', y_lab='log(q(m))', type='s', lwd=2 )
 	dev.off()
