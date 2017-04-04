@@ -156,7 +156,7 @@ isolated_index <- Reduce( intersect, i_list )
 
 cat( 'There are', length( isolated_index ), 'isolated, unresolved sources within the K-band mask.\n' )
 
-radio_cat_isolated <- my_radio_cat[ isolated_index ]
+radio_cat_isolated <- my_radio_cat[ isolated_index, ]
 
 ##################################
 
