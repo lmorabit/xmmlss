@@ -268,15 +268,19 @@ for ( my_band in my_bands ){
 		distances <- cenang( my_radio_cat$RA[ii], my_radio_cat$DEC[ii], masked_band_dat_fivesig$ALPHA_J2000, masked_band_dat_fivesig$DELTA_J2000 ) * 60. * 60.
 		candidate_index <- which( distances <= r_max ) 
 	    if ( length( candidate_index ) > 0 ){
+            ## get the data of the candidates
 		    tmp_dat <- masked_band_dat_fivesig[candidate_index,]
+            ## get their magnitudes
 			band_magnitudes <- tmp_dat[,mag_cols[1]]
+            ## calculate the radial probability distribution for the candidates
 			f_r <- 1 / ( 2 * pi * sigma_pos[ii]^2 ) * exp( distances[candidate_index]^2 / ( 2 * sigma_pos[ii]^2 ) )
 
 			## loop through candidates to calculate the LR
 			LR <- c()
 			for ( jj in 1:length(candidate_index) ){	
 				## find the qm and nm for the magnitude bin of the source
-				qm_nm_jj <- qm[ max( which( band_magnitudes[jj] > mag_bins ) ) ]
+				#qm_nm_jj <- qm_nm[ min( which( band_magnitudes[jj] > mag_bins ) ) ]
+				qm_nm_jj <- qm_nm[ max( which( mag_bins <= band_magnitudes[jj] ) ) ]
 				LR <- c( LR, qm_nm_jj * f_r[jj] )
 			}
 
