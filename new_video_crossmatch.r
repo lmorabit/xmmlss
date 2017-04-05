@@ -210,7 +210,7 @@ for ( my_band in my_bands ){
 
     ## FIND MATCHED MAGNITUDES
     mag_matches <- calculate_matched_mags( my_band, my_radio_cat, masked_band_dat_fivesig, r_max )
-    match_magnitudes <- mag_matches$match_magnitudes 
+    match_magnitudes <- mag_matches$matched_mag
     match_radio_sources <- mag_matches$radio_id
     ## match_magnitudes_isolated 
     match_magnitudes_isolated <- match_magnitudes[ which( match_radio_sources %in% my_radio_cat$Source_id[isolated_index] ) ]
@@ -273,14 +273,14 @@ for ( my_band in my_bands ){
             ## get their magnitudes
 			band_magnitudes <- tmp_dat[,mag_cols[1]]
             ## calculate the radial probability distribution for the candidates
-			f_r <- 1 / ( 2 * pi * sigma_pos[ii]^2 ) * exp( distances[candidate_index]^2 / ( 2 * sigma_pos[ii]^2 ) )
+			f_r <- 1 / ( 2 * pi * sigma_pos[ii]^2 ) * exp( - distances[candidate_index]^2 / ( 2 * sigma_pos[ii]^2 ) )
 
 			## loop through candidates to calculate the LR
 			LR <- c()
 			for ( jj in 1:length(candidate_index) ){	
 				## find the qm and nm for the magnitude bin of the source
 				#qm_nm_jj <- qm_nm[ min( which( band_magnitudes[jj] > mag_bins ) ) ]
-				qm_nm_jj <- qm_nm[ max( which( mag_bins <= band_magnitudes[jj] ) ) ]
+				qm_nm_jj <- qm_nm[ max( which( mag_bins <= band_magnitudes[jj]) ) ]
 				LR <- c( LR, qm_nm_jj * f_r[jj] )
 			}
 
