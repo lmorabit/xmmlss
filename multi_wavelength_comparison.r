@@ -616,8 +616,8 @@ find_Q0_fleuren <- function( radio_df, my_mask, video_df, radii ){
     ## fit the model to the data
 #    y <- 1 - no_counterpart_ratio
     y <- no_counterpart_ratio
-#    result <- nlsLM( y ~ 1 - q_0 * ( 1 - exp( -radii^2 / ( 2 * sig^2 ) ) ) + a , start=list( q_0 = 1.3, sig=10, a=0.1 ) )
-    result <- nlsLM( y ~ ( 1 - q_0 ) * ( 1 - exp( -radii^2 / ( 2 * sig^2 ) ) ) + a , start=list( q_0 = 1, sig=10, a=0.2 ) )
+    result <- nlsLM( y ~ 1 - q_0 * ( 1 - exp( -radii^2 / ( 2 * sig^2 ) ) ), start=list( q_0 = 1.3, sig=1 ) )
+#    result <- nlsLM( y ~ ( 1 - q_0 ) * ( 1 - exp( -radii^2 / ( 2 * sig^2 ) ) ) + a , start=list( q_0 = 1, sig=10, a=0.2 ) )
     ## gives q_0 = 0.7492
     coeffs <- coef( summary( result ) )
     q_0 <- coeffs[1,1]
@@ -662,7 +662,6 @@ calculate_positional_errors <- function( df, beam_size=5 ){
 	## -- positional errors: condon
 	#pos_noise <- sqrt( my_radio_cat$e_RA^2. + my_radio_cat$e_DEC^2. )
 	## -- positional errors: ivison
-	beam_size <- 5.
 	pos_noise <- 0.6 * beam_size / ( df$Total_flux / df$e_Total_flux )
 	## add in a calibration errors	
 	sigma_pos <- sqrt( 0.1^2. + pos_noise^2. )
