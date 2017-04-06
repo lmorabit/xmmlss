@@ -32,7 +32,7 @@ star_galaxy_separation <- function( master_cat ){
     stuff <- kde2d( g_minus_r, J_minus_K, n=c(200,200), lims=c(x_lim,y_lim) )
     mylevels <- pretty( stuff$z, n=20 )
     mylevels <- mylevels[ c(1,2,3,4,5,6,7,8,12,16,20) ]
-    contour( stuff, add=TRUE, drawlabels=FALSE, levels=mylevels )
+    contour( stuff, add=TRUE, drawlabels=FALSE, levels=mylevels, col='gray48' )
 
     ## now fit the stellar locus ...
     l1 <- 0.25  ## 0.4 g-i 
