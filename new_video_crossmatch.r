@@ -7,7 +7,7 @@ source('/vardy/leah/xmmlss/leah_helper_functions.r')
 ################# HOUSEKEEPING
 mycols <- viridis( 5 )
 stilts_exec <- '/vardy/leah/stilts/stilts'
-master_cat <- 'cats/CFHTLS-W1_2016-04-14_fullcat_errfix_MAGAUTO.fits'
+master_cat <- '/vardy/leah/data/xmmlss/cats/CFHTLS-W1_2016-04-14_fullcat_errfix_MAGAUTO.fits'
 snr_cat <- gsub( '.fits', '_SNR.csv', master_cat )
 gs_class_cat <- 'GSCLASS.csv'
 ## which magnitude values to use
@@ -182,7 +182,7 @@ for ( my_band in my_bands ){
     cat( 100*n_radio_sources_isolated/n_radio_sources, 'percent of sources are isolated/unresolved\n' )
 
     ## read the catalogue
-    band_cat <- Sys.glob( paste('cats/*Galaxies_',my_band,'.csv',sep='' ) )
+    band_cat <- Sys.glob( paste('/vardy/leah/data/xmmlss/cats/*Galaxies_',my_band,'.csv',sep='' ) )
     band_dat <- read.table( band_cat, header=TRUE, stringsAsFactors=FALSE, sep=',' )
     ## and use only things where HALOFLAG==0
     band_dat <- band_dat[ which( band_dat$HALOFLAG == 0 ), ]
@@ -200,6 +200,8 @@ for ( my_band in my_bands ){
     poserr <- calculate_positional_errors( my_radio_cat, beam_size=5 )
     r_max <- poserr$r_max
     sigma_pos <- poserr$sigma_pos 
+    ## where sigma pos < 0.5 arcsec, make it = 0.5 arcsec
+    sigma_pos[ which( sigma_pos < 0.5 ) ] <- 0.5
 
     ## MAKE THE MAGNITUDE BINS
     mag_bins <- make_mag_bins( masked_band_dat_fivesig, mag_cols )
