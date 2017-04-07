@@ -690,11 +690,10 @@ make_mag_bins <- function( df, mag_cols ){
 
 }
 
-calculate_matched_mags <- function( my_band, radio_df, video_df, r_max ){
+calculate_matched_mags <- function( my_band, radio_df, video_df, r_max, filename='' ){
 
 	n_radio_sources <- dim(radio_df)[1]
-	matched_mags <- paste( 'matched_magnitudes_', my_band, '_r', format( r_max, digits=3, nmall=2 ), '.txt', sep='' )
-	if ( !file.exists( matched_mags ) ){
+	if ( !file.exists( filename ) ){
 		match_magnitudes <- c()
         radio_ids <- c()
 		## this is the bit that takes a long time ... start a progress bar
@@ -712,11 +711,26 @@ calculate_matched_mags <- function( my_band, radio_df, video_df, r_max ){
 		cat( '\n' )
 		close( pb )
         out_df <- data.frame( radio_ids, match_magnitudes )
-        write.table( out_df, file=matched_mags, row.names=FALSE, col.names=c('radio_id','matched_mag') )
-	} else out_df <- read.table( matched_mags, header=TRUE )
+        write.table( out_df, file=filename, row.names=FALSE, col.names=c('radio_id','matched_mag') )
+	} else out_df <- read.table( filename, header=TRUE )
     return( out_df )
 }
 
+read_VLA_data <- function( vla_file, mask=NULL ){
+
+    ## read in the data
+    VLA <- read.table( vla_file,  skip=30, stringsAsFactors=FALSE, header=FALSE, sep="," )
+    ## label the columns
+    colnames( VLA ) <- c('ID', 'RA', 'DEC', 'e_RA', 'e_DEC', 'Total_flux', 'e_Total_flux', 'Peak_flux', 'e_Peak_flux', 'rms', 'DC_Maj', 'e_DC_Maj', 'DC_Min', 'e_DC_Min', 'DC_PA', 'e_DC_PA', 'resolved', 'Gaussian_ID', 'Source_id', 'Island_id' )
+
+    outfile <- '/leah/vardy/data/xmmlss/VLA/13B-308_080916.csv'
+
+    ## write a file that can be read in by topcat
+    write.table( VLA, file=outfile, row.names=FALSE, sep=",", quote=FALSE )
+    ## return the table    
+    return( VLA )
+
+}
 
 prepare_radio_data <- function( starting_file, video_area, snr_cutoff=5, outfile='sum_VLA.csv' ){
 
@@ -765,3 +779,109 @@ prepare_radio_data <- function( starting_file, video_area, snr_cutoff=5, outfile
     return( my_sum_VLA )
 
 }
+
+sum_components <- function( df, thresh=5, outfile='sum_VLA.csv' ){
+
+    ##--- CREATE AN EMPTY DATA FRAME
+    sum_df <- data.frame( ID=character(), RA=double(), DEC=double(), e_RA=double(), e_DEC=double(), Total_flux=double(), e_Total_flux=double(), Peak_flux=double(), e_Peak_flux=double(), rms=integer(), DC_Maj=double(), e_DC_Maj=double(), DC_Min=double(), e_DC_Min=double(), DC_PA=double(), e_DC_PA=double(), resolved=integer(), Gaussian_ID=integer(), Source_id=integer(), Island_id=integer(), stringsAsFactors=FALSE )
+
+    ## and an empty id string
+    source_type <- c()
+
+    ## get the source id's
+    source_ids <- df$Source_id
+
+    ##--- DUPLICATED SOURCE ID's (i.e., multiple gaussian components)    
+    ## get a duplicated index
+    duplicated_flags <- duplicated( source_ids ) + duplicated( source_ids, fromLast=TRUE )
+    duplicated_ids <- unique( source_ids[ which( duplicated_flags > 0 ) ] )
+
+    ## loop through the duplicated sources
+    low_score_ids <- c()
+    for ( d_id in duplicated_ids ){
+
+        tmp_df <- df[ which( df$Source_id == d_id ), ]
+
+        ## identify artefacts ?
+        ## do this using e_RA, e_DEC, e_DC_Maj, e_DC_Min, e_DC_PA
+        ## everything gets a score of 1 if it's more than the standard deviation of 
+        ## all the components
+        scores <- rep( 0, dim(tmp_df)[1] )
+        scores[ which( tmp_df$e_RA > sd( tmp_df$e_RA ) ) ] <- scores[ which( tmp_df$e_RA > sd( tmp_df$e_RA ) ) ] + 1.
+        scores[ which( tmp_df$e_DEC > sd( tmp_df$e_DEC ) ) ] <- scores[ which( tmp_df$e_DEC > sd( tmp_df$e_DEC ) ) ] + 1.
+        scores[ which( tmp_df$e_DC_Maj > sd( tmp_df$e_DC_Maj ) ) ] <- scores[ which( tmp_df$e_DC_Maj > sd( tmp_df$e_DC_Maj ) ) ] + 1.
+        scores[ which( tmp_df$e_DC_Min > sd( tmp_df$e_DC_Min ) ) ] <- scores[ which( tmp_df$e_DC_Min > sd( tmp_df$e_DC_Min ) ) ] + 1.
+        scores[ which( tmp_df$e_DC_PA > sd( tmp_df$e_DC_PA ) ) ] <- scores[ which( tmp_df$e_DC_PA > sd( tmp_df$e_DC_PA ) ) ] + 1.
+        ## check for low scores
+        good_scores <- which( scores < 2 )
+        if ( length( good_scores ) < 1 ){
+            low_score_ids <- c( low_score_ids, d_id )
+            source_type <- c( source_type, 'C' )
+        } else { 
+            tmp_df <- tmp_df[ good_scores, ] 
+            source_type <- c( source_type, 'M' )
+        }
+
+        ## find geometric mean of RA, DEC (and errors)
+        mean_RA <- mean( tmp_df$RA )
+        mean_DEC <- mean( tmp_df$DEC )
+        e_mean_RA <- sqrt( sum( tmp_df$e_RA^2. ) )
+        e_mean_DEC <- sqrt( sum( tmp_df$e_DEC^2. ) )
+        ## convert RA, DEC to ID
+        mean_ID <- paste( 'J', substr( deg2hms( mean_RA, type='cat', sep='' ), 1, 8 ), substr( deg2dms( mean_DEC, type='cat', sep='' ), 1, 7 ), sep="" )
+        ## sum the total flux & errors
+        sum_total_flux <- sum( tmp_df$Total_flux )
+        e_sum_total_flux <- sqrt( sum( tmp_df$e_Total_flux^2. ) )
+        ## take the max peak flux & error
+        max_peak_flux <- max( tmp_df$Peak_flux )
+        e_max_peak_flux <- tmp_df$e_Peak_flux[ which( tmp_df$Peak_flux == max_peak_flux ) ]
+        if ( length( e_max_peak_flux ) > 0 ) e_max_peak_flux <- max( e_max_peak_flux )
+        ## average the rms
+        avg_rms <- mean( tmp_df$rms[ which( tmp_df$rms > 0 ) ] )
+        ## use DC_Maj, DC_Min, and DC_PA to find largest size ... ?
+        my_sizes <- find_largest_size( tmp_df$RA, tmp_df$DEC, tmp_df$DC_PA, tmp_df$DC_Maj, tmp_df$DC_Min )
+        my_DC_Maj <- my_sizes[1]
+        e_my_DC_Maj <- my_sizes[2]
+        my_DC_Min <- my_sizes[3]
+        e_my_DC_Min <- my_sizes[4]
+        my_DC_PA <- my_sizes[5]
+        e_my_DC_PA <- my_sizes[6]
+
+        ## set resolved = sum( resolved )
+        sum_resolved <- sum( tmp_df$resolved )
+        ## set Gaussian_ID = which( Peak_flux == max( Peak_flux ) )
+        gauss_id <- tmp_df$Gaussian_ID[ which( tmp_df$Peak_flux == max( tmp_df$Peak_flux ) ) ]
+        if ( length( gauss_id ) > 0 ) gauss_id <- min( gauss_id )
+        ## set Island_ID = which( Peak_flux == max( Peak_flux ) )
+        isl_id <- tmp_df$Island_id[ which( tmp_df$Peak_flux == max( tmp_df$Peak_flux ) ) ]
+        if ( length( isl_id ) > 0 ) isl_id <- min( isl_id )
+        ## Source_id = d_id
+
+        ##--- ADD TO DATA FRAME
+        my_row <- data.frame( mean_ID, mean_RA, mean_DEC, e_mean_RA, e_mean_DEC, sum_total_flux, e_sum_total_flux, max_peak_flux, e_max_peak_flux, avg_rms, my_DC_Maj, e_my_DC_Maj, my_DC_Min, e_my_DC_Min, my_DC_PA, e_my_DC_PA, sum_resolved, gauss_id, d_id, isl_id, stringsAsFactors=FALSE )
+        colnames( my_row ) <- colnames( sum_df )
+        sum_df <- merge( sum_df, my_row, all=TRUE )
+
+    }
+    
+    cat( '... done processing duplicated Source_ids.\n' )
+
+    ## that means everything else is a single gaussian
+    single_ids <- source_ids[ which( duplicated_flags == 0 ) ]
+    for ( s_id in single_ids ){
+        sum_df <- merge( sum_df, df[which( df$Source_id == s_id ),], all=TRUE )
+        source_type <- c( source_type, 'S' )
+    }
+
+    sum_df[,"S_Code"] <- source_type
+
+    cat( ' -- There are', length( single_ids ), 'single sources. (', 100*length( single_ids )/length( source_ids ), '%)\n' )
+    n_dup <- length( duplicated_ids )
+    cat( ' -- There are', n_dup, 'duplicated Source_ids. (', 100*n_dup/length( source_ids ), '%)\n' )
+    cat( ' -- There are', n_dup-length(low_score_ids), 'source groups. (', 100*(n_dup-length(low_score_ids))/length( source_ids ), '%)\n' )
+
+    write.table( sum_df, file=outfile, row.names=FALSE, quote=FALSE, sep="," )
+    return( sum_df )
+
+}
+
