@@ -723,7 +723,7 @@ read_VLA_data <- function( vla_file, mask=NULL ){
     ## label the columns
     colnames( VLA ) <- c('ID', 'RA', 'DEC', 'e_RA', 'e_DEC', 'Total_flux', 'e_Total_flux', 'Peak_flux', 'e_Peak_flux', 'rms', 'DC_Maj', 'e_DC_Maj', 'DC_Min', 'e_DC_Min', 'DC_PA', 'e_DC_PA', 'resolved', 'Gaussian_ID', 'Source_id', 'Island_id' )
 
-    outfile <- '/leah/vardy/data/xmmlss/VLA/13B-308_080916.csv'
+    outfile <- '/vardy/leah/data/xmmlss/VLA/13B-308_080916.csv'
 
     ## write a file that can be read in by topcat
     write.table( VLA, file=outfile, row.names=FALSE, sep=",", quote=FALSE )
