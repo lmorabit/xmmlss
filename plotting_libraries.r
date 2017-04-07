@@ -51,6 +51,19 @@ format_log_axis_labels <- function( vals ){
 	return( my_labels )
 }
 
+format_log_axis_labels2 <- function( axp_vals ){
+
+    byval <- (axp_vals[2] - axp_vals[1])/axp_vals[3]
+    vals <- seq( axp_vals[1], axp_vals[2], byval )
+
+	my_labels <- c()
+	for ( rr in 1:length(vals) ) my_labels <- c( my_labels, bquote( 10^{.(vals[rr])} ) )
+
+    axis_vals <- list( at=vals, labels=my_labels )
+
+	return( axis_vals )
+}
+
 get_legend_position <- function( xaxp, yaxp, l_pos='br', xlog=FALSE, ylog=FALSE ) {
 
 	x_range <- xaxp[2] - xaxp[1]
@@ -322,14 +335,18 @@ plot_three_histograms <- function( outfile, thing1, parm1, col1, thing2, parm2, 
 	
 }
 
-lplot <- function( x, y, x_lab='', y_lab='', leg=TRUE, ... ){
+lplot <- function( x, y, x_lab='', y_lab='', margins=c(5,5,2,2), leg=TRUE, xaxon=TRUE, yaxon=TRUE, ... ){
 
-	par( mar=c(5,5,2,2) )
+	par( mar=margins )
 	plot( x, y, ..., axes=FALSE, xlab='', ylab='' )
-	axis( 1 )
-	axis( 2 )
-	mtext( x_lab, side=1, line=3, cex=1.25 )
-	mtext( y_lab, side=2, line=3, cex=1.25 )
+    if ( xaxon ){
+    	axis( 1 )
+        mtext( x_lab, side=1, line=3, cex=1.25 )
+    }
+    if ( yaxon ){
+	    axis( 2 )
+	    mtext( y_lab, side=2, line=3, cex=1.25 )
+    }
 	box( which='plot', lwd=1.5 )
 	if ( !leg ) par( mar=c(5.1,4.1,4.1,2.1) )
 	
