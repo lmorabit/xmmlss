@@ -885,3 +885,92 @@ sum_components <- function( df, thresh=5, outfile='sum_VLA.csv' ){
 
 }
 
+find_largest_size <- function( ra, dec, pa, l_maj, l_min, do_plot=FALSE ){
+
+    ## convert major and minor axes to sigma and degrees
+    sigma_maj <- l_maj / 60. / 60. / (2*sqrt(2*log(2)))
+    sigma_min <- l_min / 60. / 60. / (2*sqrt(2*log(2)))
+
+    ## and PA to radians
+    pa_rad <- ( 180 - pa ) * pi / 180.
+
+    if ( do_plot ){
+        ## start a plot 
+        x_lim <- rev( range( ra ) )
+        x_lim[1] <- x_lim[1] + 0.5*( max( x_lim ) - min( x_lim ) )
+        x_lim[2] <- x_lim[2] - 0.5*( max( x_lim ) - min( x_lim ) )
+        y_lim <- range( dec )
+        y_lim[1] <- y_lim[1] - 0.5*( max( y_lim ) - min( y_lim ) )
+        y_lim[2] <- y_lim[2] + 0.5*( max( y_lim ) - min( y_lim ) )
+        plot( ra, dec, xlim=x_lim, ylim=y_lim )
+    }
+    
+    ## get the coordinates for each gaussian (default is 95% limit)
+    coordinates_x <- c()
+    coordinates_y <- c()
+    for ( ii in 1:length(ra) ){
+        rho_sigmax_sigmay <- cos( pa_rad[ii] ) * sigma_maj[ii] * sigma_min[ii]
+        my_mat <- matrix( c( sigma_maj[ii]^2., rho_sigmax_sigmay, rho_sigmax_sigmay, sigma_min[ii]^2 ), 2, 2 )
+        if ( do_plot ) values <- ellipse( mu=c( ra[ii], dec[ii] ), sigma=my_mat ) else values <- ellipse( mu=c( ra[ii], dec[ii] ), sigma=my_mat, draw=FALSE )
+        coordinates_x <- c( coordinates_x, values[,1] )
+        coordinates_y <- c( coordinates_y, values[,2] )
+    }
+
+    ## for now, just take the rectangle that everything fits in.
+    ## later, do more awesome stuff. 
+    xvec <- c( min( coordinates_x ), min(coordinates_x ), max( coordinates_x ), max( coordinates_x ) )
+    yvec <- c( min( coordinates_y ), max( coordinates_y ), max( coordinates_y), min( coordinates_y ) )
+    if ( do_plot ) polygon( xvec, yvec, border='green' )
+    
+    x_size <- ( max( coordinates_x ) - min( coordinates_x ) ) * 60. * 60.
+    y_size <- ( max( coordinates_y ) - min( coordinates_y ) ) * 60. * 60.
+    pa <- 0.
+    x_cen <- ( max( coordinates_x ) - min( coordinates_x ) )/2 + min( coordinates_x )
+    y_cen <- ( max( coordinates_y ) - min( coordinates_y ) )/2 + min( coordinates_y )
+
+    ## CASE 1: x > y 
+    if ( x_size > y_size ){
+        maj_size <- sqrt( x_size^2. + y_size^2. )
+        min_size <- y_size / cos( asin( y_size / maj_size ) )
+        ## determine which direction the major axis points
+        ## can do this by making a mask with the gaussians and summing in quad_1 and quad_4 ...
+        ## for now, do it by the number of points (and remember that RA is backwards)
+        quad_1 <- length( which( coordinates_x > x_cen & coordinates_y > y_cen ) )
+        quad_4 <- length( which( coordinates_x < x_cen & coordinates_y > y_cen ) )
+        pa <- asin( y_size / maj_size ) * 180 / pi
+        if ( quad_1 > quad_4 ) pa <- pa + 90.
+    }            
+
+    ## CASE 2: y > x
+    if ( x_size < y_size ){
+        maj_size <- sqrt( x_size^2. + y_size^2. )
+        min_size <- x_size / sin( acos( x_size / maj_size ) )
+        ## determine which direction the major axis points
+        ## can do this by making a mask with the gaussians and summing in quad_1 and quad_4 ...
+        ## for now, do it by the number of points (and remember that RA is backwards)
+        quad_1 <- length( which( coordinates_x > x_cen & coordinates_y > y_cen ) )
+        quad_4 <- length( which( coordinates_x < x_cen & coordinates_y > y_cen ) )
+        pa <- asin( x_size / maj_size ) * 180 / pi
+        if ( quad_4 < quad_1 ) pa <- pa + 90
+    }
+
+    ## CASE 3: y == x
+    if ( x_size == y_size ){
+        maj_size <- sqrt( x_size^2. + y_size^2. )   
+        min_size <- maj_size
+        quad_1 <- length( which( coordinates_x > x_cen & coordinates_y > y_cen ) )
+        quad_4 <- length( which( coordinates_x < x_cen & coordinates_y > y_cen ) )
+        if ( quad_1 > quad_4 ) pa <- 135 else pa <- 45
+    }
+
+
+    maj_size <- max( x_size, y_size )
+    min_size <- min( x_size, y_size )
+    if ( x_size > y_size ) pa <- 0 else pa <- 90    
+
+    ## for now, set the errors to zero
+    my_size <- c( maj_size, 0., min_size, 0., pa, 0. )
+    if ( do_plot ) dev.off()
+    return( my_size )
+
+}
