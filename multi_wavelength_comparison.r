@@ -3,6 +3,7 @@ library('raster')
 library( 'gplots' )
 library( 'viridis' )
 library( 'minpack.lm' )
+library( 'mixtools' )
 mycols <- viridis( 5 )
 source('/vardy/leah/xmmlss/plotting_libraries.r')
 
