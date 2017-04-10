@@ -772,16 +772,18 @@ prepare_radio_data <- function( starting_file, video_area, snr_cutoff=5, outfile
     n_unique <- length( unique( my_VLA$Source_id ) )
     
     ## sum the multiple-component sources 
-    my_sum_VLA <- sum_components( my_VLA, outfile=outfile )
+    my_sum_VLA <- sum_components( my_VLA )
 
     nn <- find_nearest_neighbours( my_sum_VLA )
     my_sum_VLA[ ,'nearest_neighbour' ] <- nn
+
+    write.table( my_sum_VLA, file=outfile, row.names=FALSE, quote=FALSE, sep=',' )
 
     return( my_sum_VLA )
 
 }
 
-sum_components <- function( df, thresh=5, outfile='sum_VLA.csv' ){
+sum_components <- function( df, thresh=5 ){ #, outfile='sum_VLA.csv' ){
 
     ##--- CREATE AN EMPTY DATA FRAME
     sum_df <- data.frame( ID=character(), RA=double(), DEC=double(), e_RA=double(), e_DEC=double(), Total_flux=double(), e_Total_flux=double(), Peak_flux=double(), e_Peak_flux=double(), rms=integer(), DC_Maj=double(), e_DC_Maj=double(), DC_Min=double(), e_DC_Min=double(), DC_PA=double(), e_DC_PA=double(), resolved=integer(), Gaussian_ID=integer(), Source_id=integer(), Island_id=integer(), stringsAsFactors=FALSE )
@@ -881,7 +883,7 @@ sum_components <- function( df, thresh=5, outfile='sum_VLA.csv' ){
     cat( ' -- There are', n_dup, 'duplicated Source_ids. (', 100*n_dup/length( source_ids ), '%)\n' )
     cat( ' -- There are', n_dup-length(low_score_ids), 'source groups. (', 100*(n_dup-length(low_score_ids))/length( source_ids ), '%)\n' )
 
-    write.table( sum_df, file=outfile, row.names=FALSE, quote=FALSE, sep="," )
+    #write.table( sum_df, file=outfile, row.names=FALSE, quote=FALSE, sep="," )
     return( sum_df )
 
 }
