@@ -67,7 +67,7 @@ create_footprint_mask <- function( df, cellsize=60, tolerance=1e-7, outfile='mas
     counts[ which( counts > 0 ) ] <- 1
 
     k <- list( x.breaks=xbins, y.breaks=ybins, counts=counts )
-    kim <- raster( list( x=xbins, y=ybins, z=counts )
+    kim <- raster( list( x=xbins, y=ybins, z=counts ) )
 
     plotfile <- paste( strsplit( outfile, '.csv' )[[1]], '_mask_',cellsize,'arcsec.pdf', sep='' )
     pdf( plotfile )
