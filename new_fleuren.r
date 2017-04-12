@@ -1,4 +1,4 @@
-find_Q0_fleuren <- function( radio_df, my_mask, video_df, radii ){
+find_Q0_fleuren <- function( radio_df, video_df, radii ){
 
     ## first check if this has already been done
     ## get the band first for the filename
