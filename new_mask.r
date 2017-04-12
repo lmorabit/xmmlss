@@ -1,5 +1,5 @@
 ## read in the K-band catalogue
-band_dat <- read.table( 'cats/CFHTLS-W1_2016-04-14_fullcat_errfix_MAGAUTO_Galaxies_K.csv', sep=',', stringsAsFactors=FALSE, header=TRUE )
+band_dat <- read.table( '/vardy/leah/data/xmmlss/cats/CFHTLS-W1_2016-04-14_fullcat_errfix_MAGAUTO_Galaxies_K.csv', sep=',', stringsAsFactors=FALSE, header=TRUE )
 
 ## get K-band detected values
 kband_det <- which( substr( as.character( band_dat$ID ), 1, 1 ) == '3' )
