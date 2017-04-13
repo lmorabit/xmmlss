@@ -133,7 +133,8 @@ basic_cols <- c( 'ID', 'ALPHA_J2000', 'DELTA_J2000', 'HALOFLAG', 'CONTEXT' )
 info_cols <- c( 'FLAGS', 'CLASS_STAR' )
 
 
-my_bands <- c( 'K' )
+#my_bands <- c( 'K' )
+my_bands <- c('J','H','K','U','G','R','ZC','Y')
 
 cat( 'Beginning LR matching ... \n' )
 for ( my_band in my_bands ){
@@ -299,7 +300,7 @@ for ( my_band in my_bands ){
 } ## end for (my_bands)
 
 cat( 'Writing final matches to a file.\n' )
-final_matches <- data.frame( radio_ID, match_band, video_ID, lr_value, lr_rel, n_cont, stringsAsFactors=FALSE )
+final_matches <- data.frame( radio_ID, match_band, video_ID, lr_value, lr_rel, n_cont, separation, stringsAsFactors=FALSE )
 write.table( final_matches, file='final_matches.csv', quote=FALSE, row.names=FALSE, sep=',' )
 cat( 'done.\n' )
 
