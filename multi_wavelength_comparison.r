@@ -453,6 +453,136 @@ apply_mask <- function( df, my_mask, filestem='' ){
 
 }
 
+apply_masked_regions <- function( df ){
+
+    df_cols <- colnames( df )
+
+    if ( 'RA' %in% df_cols ){
+        ra_name <- 'RA'
+        dec_name <- 'DEC'
+    } else {
+        ra_name <- 'ALPHA_J2000'
+        dec_name <- 'DELTA_J2000'
+    }
+
+    ## get the mask definition information
+    area_def_file <- '/vardy/leah/data/xmmlss/mask_definition/Kband_area_definition.dat'
+    halo_regions <- '/vardy/leah/data/xmmlss/mask_definition/ds9.reg'
+
+    area_def <- read.table( area_def_file, stringsAsFactors=FALSE, header=TRUE )
+
+    include_area_x <- area_def$include_x
+    include_area_y <- area_def$include_y 
+
+    ## trim down to only the 'include' area
+    include_index_x <- which( df[ , ra_name ] > min( include_area_x ) & df[ , ra_name ] < max( include_area_x ) )
+    include_index_y <- which( df[ , dec_name ] > min( include_area_y ) & df[ , dec_name ] < max( include_area_y ) )
+    include_index <- intersect( include_index_x, include_index_y )
+
+    ## loop through the exclude regions
+    area_def_cols <- colnames( area_def )
+    excols <- area_def_cols[ which( grepl( 'exclude_x', area_def_cols ) )]
+
+    exclude_index <- c()
+    for ( ii in 1:length( excols ) ){
+        excl_x <- area_def[ , paste( 'exclude_x', ii, sep='' ) ]
+        excl_y <- area_def[ , paste( 'exclude_y', ii, sep='' ) ]
+        excl_index_x <- which( df[ , ra_name ] > min( excl_x ) & df[ , ra_name ] < max( excl_x ) )
+        excl_index_y <- which( df[ , dec_name ] > min( excl_y ) & df[ , dec_name ] < max( excl_y ) )
+        excl_index <- intersect( excl_index_x, excl_index_y )
+        exclude_index <- c( exclude_index, excl_index )
+    }
+    exclude_index <- unique( exclude_index )
+
+    ## find where things are in include but not exclude.
+    include_in_exclude <- ( include_index %in% exclude_index )
+
+    final_index <- include_index[ which( !include_in_exclude ) ]
+
+    new_df <- df[ final_index, ]
+
+    ## now exclude the halo regions
+    ## first read the file
+    ds9_reg <- readLines( halo_regions )
+    ds9_reg <- ds9_reg[3:length(ds9_reg)]
+
+    exclude_index <- c()
+    for ( ds9r in ds9_reg ){
+        tmp <- strsplit( ds9r, '(', fixed=TRUE )[[1]]
+        if ( tmp[1] == 'circle' ){
+            x_cen <- as.numeric( strsplit( tmp[2], ',' )[[1]][1] )
+            y_cen <- as.numeric( strsplit( tmp[2], ',' )[[1]][2] )
+            radius <- as.numeric( substr( strsplit( tmp[2], ',' )[[1]][3], 1, 6 ) ) 
+            distances <- cenang( x_cen, y_cen, new_df[,ra_name], new_df[,dec_name] ) * 60 * 60 ## convert to arcsec
+            excl_index <- which( distances < radius )
+            exclude_index <- c( exclude_index, excl_index )
+
+        } #endif
+    } #endfor ds9r
+    exclude_index <- unique( exclude_index )
+
+    tmp_index <- seq( 1, dim( new_df )[1] )
+
+    circle_index <- tmp_index[ which( !( tmp_index %in% exclude_index ) ) ]
+
+    ## deal with polygons --which are actually only squares
+    exclude_index <- c()
+    for ( ds9r in ds9_reg ){
+        tmp <- strsplit( ds9r, '(', fixed=TRUE )[[1]]
+        if ( tmp[1] == 'polygon' ){
+            tmp1 <- strsplit( tmp[2], ',' )[[1]]
+            tmp1[length(tmp1)] <- substr( tmp1[length(tmp1)], 1, nchar(tmp1[length(tmp1)])-1 )
+            tmp1 <- as.numeric( tmp1 )
+            point1 <- list( x=tmp1[1], y=tmp1[2] )
+            point2 <- list( x=tmp1[3], y=tmp1[4] )
+            point3 <- list( x=tmp1[5], y=tmp1[6] )
+            point4 <- list( x=tmp1[7], y=tmp1[8] )
+
+            ## line between point 1 and point 2
+            p12_m <- ( point2$y - point1$y ) / ( point2$x - point1$x )
+            p12_b <- point1$y - p12_m*point1$x 
+                
+            my_y <- new_df[,ra_name] * p12_m + p12_b 
+            excl_index <- which( new_df[,dec_name] < my_y )
+
+            ## line between point 3 and point 4
+            p43_m <- ( point3$y - point4$y ) / ( point3$x - point4$x )
+            p43_b <- point4$y - p43_m*point4$x 
+
+            my_y <- new_df[,ra_name] * p43_m + p43_b 
+            excl_index <- intersect( excl_index, which( new_df[,dec_name] > my_y ) )
+
+            ## line between point 1 and point 4
+            p41_m <- ( point1$y - point4$y ) / ( point1$x - point4$x )
+            p41_b <- point4$y - p41_m*point4$x 
+
+            my_y <- new_df[,ra_name] * p41_m + p41_b 
+            excl_index <- intersect( excl_index, which( new_df[,dec_name] < my_y ) )
+
+            ## line between point 2 and point 3
+            p32_m <- ( point2$y - point3$y ) / ( point2$x - point3$x )
+            p32_b <- point3$y - p32_m*point3$x 
+                
+            my_y <- new_df[,ra_name] * p32_m + p32_b 
+            excl_index <- intersect( excl_index, which( new_df[,dec_name] > my_y ) )
+
+            exclude_index <- c( exclude_index, excl_index )
+
+        }
+    }
+    exclude_index <- unique( exclude_index )
+
+    polygon_index <- tmp_index[ which( !(tmp_index %in% exclude_index ) ) ]
+
+    final_include_index <- intersect( circle_index, polygon_index )
+        
+    df_out <- new_df[ final_include_index, ]
+
+    return( df_out )
+
+}
+
+
 find_ra_dec_plot_limits <- function( ra, dec, padding=30 ){
 
     xmin <- min( ra ) - ( padding / 60. / 60. )
@@ -539,7 +669,7 @@ find_number_no_counterparts <- function( radio_df, video_df, radii ){
 
 }
 
-find_Q0_fleuren <- function( radio_df, my_mask, video_df, radii ){
+find_Q0_fleuren <- function( radio_df, video_df, radii ){
 
     ## first check if this has already been done
     ## get the band first for the filename
@@ -564,37 +694,22 @@ find_Q0_fleuren <- function( radio_df, my_mask, video_df, radii ){
 
 	    ## randomly generate RA/DEC, scaling to the appropriate area in the sky
 	    set.seed(30)
-	    rand_DEC <- runif( n_srcs * 2 )
+	    rand_DEC <- runif( n_srcs * 4 )
 	    rand_DEC <- rand_DEC * ( max_DEC-min_DEC ) + min_DEC
 
 	    set.seed(20)
-	    rand_RA <- runif( n_srcs * 2 )
+	    rand_RA <- runif( n_srcs * 4 )
 	    rand_RA <- rand_RA * ( max_RA-min_RA ) + min_RA 
 	    ## do i need a correction for cos( DEC ) ?
 
 	    random_RA_DEC <- data.frame( rand_RA, rand_DEC, stringsAsFactors=FALSE )
 	    colnames( random_RA_DEC ) <- c( 'RA', 'DEC' )
-    
-	    ## throw out RA,DEC pairs not in the mask
-	    mask_vec <- rep( 0, dim(random_RA_DEC)[1] )
-	    ## loop through data frame
-	    for ( ii in 1:dim(random_RA_DEC)[1] ){
-        	## first check if it's in the mask area
-	        ra_check <- ( random_RA_DEC$RA[ii] >= min( my_mask$x.breaks ) & random_RA_DEC$RA[ii] <= max( my_mask$x.breaks ) )
-        	dec_check <- ( random_RA_DEC$DEC[ii] >= min( my_mask$y.breaks ) & random_RA_DEC$DEC[ii] <= max( my_mask$y.breaks ) )
-	        if ( ra_check+dec_check == 2 ){
-        	    ## ra will always be positive 
-	            bin_x <- max( which( my_mask$x.breaks < random_RA_DEC$RA[ii] ) )
-        	    ## dec can be negative
-	            bin_y <- max( which( random_RA_DEC$DEC[ii] >= my_mask$y.breaks ) ) ## all values are greater than zero
-        	    ## case 3: if they straddle zero ... ?
-	            if ( my_mask$counts[bin_x,bin_y] == 1 ) mask_vec[ii] <- 1
-        	}
-	    }
-	    random_RA_DEC <- random_RA_DEC[ which( mask_vec == 1 ), ]
+
+        ## apply the mask
+        masked_random <- apply_masked_regions( random_RA_DEC )
 
 	    ## trim down the array so it's the right size 
-	    if ( dim( random_RA_DEC )[1] >= n_srcs ) random_RA_DEC <- random_RA_DEC[ 1:n_srcs, ] else cat( 'NOT ENOUGH DATA POINTS IN THE RANDOM CATALOGUE.\n' )
+	    if ( dim( masked_random )[1] >= n_srcs ) random_RA_DEC <- masked_random[ 1:n_srcs, ] else cat( 'NOT ENOUGH DATA POINTS IN THE RANDOM CATALOGUE.\n' )
 
 	    ## find the number of no counterparts as a function of radius
 	    cat( 'Finding blanks for RANDOM catalogue.\n' )
@@ -615,11 +730,8 @@ find_Q0_fleuren <- function( radio_df, my_mask, video_df, radii ){
     }
 
     ## fit the model to the data
-#    y <- 1 - no_counterpart_ratio
     y <- no_counterpart_ratio
     result <- nlsLM( y ~ 1 - q_0 * ( 1 - exp( -radii^2 / ( 2 * sig^2 ) ) ), start=list( q_0 = 1.3, sig=1 ) )
-#    result <- nlsLM( y ~ ( 1 - q_0 ) * ( 1 - exp( -radii^2 / ( 2 * sig^2 ) ) ) + a , start=list( q_0 = 1, sig=10, a=0.2 ) )
-    ## gives q_0 = 0.7492
     coeffs <- coef( summary( result ) )
     q_0 <- coeffs[1,1]
     q_0_err <- coeffs[1,2]
@@ -733,35 +845,16 @@ read_VLA_data <- function( vla_file, mask=NULL ){
 
 }
 
-prepare_radio_data <- function( starting_file, video_area, snr_cutoff=5, outfile='sum_VLA.csv' ){
+prepare_radio_data <- function( starting_file, snr_cutoff=5, outfile='sum_VLA.csv' ){
 
     VLA <- read_VLA_data( starting_file )
 
     ## get rid of duplicated rows
     VLA <- VLA[ which( !duplicated( VLA ) ), ]
 
-    ## find things in video area
-    ra_index <- ( VLA$RA >= video_area$xl & VLA$RA <= video_area$xr )
-    dec_index <- ( VLA$DEC >= video_area$yl & VLA$DEC <= video_area$yr )
-    area_index <- intersect( which( ra_index ), which( dec_index ) )
-    not_area_index <- which( (ra_index + dec_index) != 2 )
-    
-    ##check if things span the border (they do not, at least for K-band)
-    not_area_ids <- VLA$Source_id[not_area_index]
-    area_ids <- VLA$Source_id[area_index]
-    
-    border_check <- which( not_area_ids %in% area_ids )
-    if ( length( border_check ) > 0 ){
-        cat( length( border_check ), 'sources span the border, adding the extra components back in.\n' )
-        border_index <- which( VLA$Source_id %in% not_area_ids[border_check] )
-        area_index <- union( area_index, border_index )
-    } else cat( 'No sources span the border.\n' )
-
-
     ## and find signal to noise
     snr <- VLA$Peak_flux / ( VLA$rms / 1e3 ) 
     good_snr <- which( snr >= snr_cutoff )
-
 
     ## combine indices
     good_index <- intersect( area_index, good_snr )
@@ -977,3 +1070,94 @@ find_largest_size <- function( ra, dec, pa, l_maj, l_min, do_plot=FALSE ){
     return( my_size )
 
 }
+
+box_area <- function( xvec, yvec ){
+
+    area <- ( max( xvec ) - min( xvec ) ) * ( max( yvec ) - min( yvec ) )
+    return( area )
+}
+
+get_video_area_arcsec <- function(){
+
+    df_cols <- colnames( df )
+
+    if ( 'RA' %in% df_cols ){
+        ra_name <- 'RA'
+        dec_name <- 'DEC'
+    } else {
+        ra_name <- 'ALPHA_J2000'
+        dec_name <- 'DELTA_J2000'
+    }
+
+    ## get the mask definition information
+    area_def_file <- '/vardy/leah/data/xmmlss/mask_definition/Kband_area_definition.dat'
+    halo_regions <- '/vardy/leah/data/xmmlss/mask_definition/ds9.reg'
+
+    area_def <- read.table( area_def_file, stringsAsFactors=FALSE, header=TRUE )
+
+    ## convert to arcsec
+    ad <- area_def * 60 * 60
+
+    main_area <- box_area( ad$include_x, ad$include_y )
+
+    ## subtract off bottom area
+    bottom_area <- box_area( ad$exclude_x1, ad$exclude_y1 ) + box_area( c(max(ad$exclude_x2)-max(ad$exclude_x1)), ad$exclude_y2 ) + box_area( ad$exclude_x3, c(max(ad$exclude_y3),max(ad$exclude_y1)) ) + box_area( ad$exclude_x4, c(max(ad$exclude_y4),max(ad$exclude_y2)) )
+
+    ## subtract off top area
+    top_area <- box_area( ad$exclude_x5, ad$exclude_y5 ) + box_area( ad$exclude_x6, c(min(ad$exclude_y6),min(ad$exclude_y5)) ) + box_area( ad$exclude_x7, c(min(ad$exclude_y6),min(ad$exclude_y7)) )
+
+    ## interior areas
+    interior_areas <- box_area( ad$exclude_x8, ad$exclude_y8 ) + box_area( ad$exclude_x9, ad$exclude_y9 ) + box_area( ad$exclude_x10, ad$exclude_y10 )
+    
+    main_area <- main_area - bottom_area - top_area - interior_areas
+    
+    ## now exclude the halo regions
+    ## first read the file
+    ds9_reg <- readLines( halo_regions )
+    ds9_reg <- ds9_reg[3:length(ds9_reg)]
+
+    circle_areas <- c()
+    for ( ds9r in ds9_reg ){
+        tmp <- strsplit( ds9r, '(', fixed=TRUE )[[1]]
+        if ( tmp[1] == 'circle' ){
+            radius <- as.numeric( substr( strsplit( tmp[2], ',' )[[1]][3], 1, 6 ) ) ## this is in arcsec
+            circle_areas <- c( circle_areas, pi*radius^2 )
+        } #endif
+    } #endfor ds9r
+    circle_area <- sum( circle_areas )
+
+    main_area <- main_area - circle_area
+
+    ## deal with polygons --which are actually only squares
+    polygon_areas <- c()
+    for ( ds9r in ds9_reg ){
+        tmp <- strsplit( ds9r, '(', fixed=TRUE )[[1]]
+        if ( tmp[1] == 'polygon' ){
+            tmp1 <- strsplit( tmp[2], ',' )[[1]]
+            tmp1[length(tmp1)] <- substr( tmp1[length(tmp1)], 1, nchar(tmp1[length(tmp1)])-1 )
+            tmp1 <- as.numeric( tmp1 ) * 60 * 60
+            point1 <- list( x=tmp1[1], y=tmp1[2] )
+            point2 <- list( x=tmp1[3], y=tmp1[4] )
+            point3 <- list( x=tmp1[5], y=tmp1[6] )
+            point4 <- list( x=tmp1[7], y=tmp1[8] )
+
+            mat1 <- as.matrix( cbind(c(point1$x, point1$y ), c(point2$x, point2$y)) )
+            mat2 <- as.matrix( cbind(c(point2$x, point2$y ), c(point3$x, point3$y)) )
+            mat3 <- as.matrix( cbind(c(point3$x, point3$y ), c(point4$x, point4$y)) )
+            mat4 <- as.matrix( cbind(c(point4$x, point4$y ), c(point1$x, point1$y)) )
+    
+            sum_dets <- 0.5 * ( det( mat1 ) + det( mat2 ) + det( mat3 ) + det( mat4 ) )
+
+            polygon_areas <- c( polygon_areas, sum_dets )
+
+        }
+    }
+
+    polygon_area <- sum( polygon_areas )
+    
+    total_area <- main_area - polygon_area
+
+    return( total_area )
+
+}
+
