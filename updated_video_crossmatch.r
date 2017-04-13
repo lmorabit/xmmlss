@@ -248,7 +248,10 @@ for ( my_band in my_bands ){
 	lplot( tmhist$mids, log10( qm ), xlim=c(14,22.2), x_lab='Ks mag', y_lab='log(q(m))', type='s', lwd=2, margins=c(5,5,0,2) )
 	dev.off()
 
-    ## FIND RELIABILITY VALUES
+    ## FIND LR AND RELIABILITY VALUES
+    ## do this for the entire catalogue
+    my_radio_cat <- VLA_dat
+
     n_radio_sources <- dim(my_radio_cat)[1]
 	pb <- txtProgressBar( min=0, max=n_radio_sources, style=3 )
 	count <- 0 
