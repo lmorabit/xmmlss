@@ -177,7 +177,7 @@ for ( my_band in my_bands ){
     ## plot this for later
     pdf( 'video_cat_coverage.pdf' )
     lplot( video_dat$ALPHA_J2000, video_dat$DELTA_J2000, pch='.', col='gray48', xlim=c(max(video_dat$ALPHA_J2000),min(video_dat$ALPHA_J2000)), x_lab='RA [deg]', y_lab='Dec [deg]' )
-    points( radio_video_area$RA, radio_video_area$DEC, pch=23, col=mycols[2], bg=mycols[4], cex=0.4 )#, lwd=0.5 )
+    points( VLA_dat$RA, VLA_dat$DEC, pch=23, col=mycols[2], bg=mycols[4], cex=0.4 )#, lwd=0.5 )
     dev.off()
 
 
