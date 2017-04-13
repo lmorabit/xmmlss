@@ -854,10 +854,7 @@ prepare_radio_data <- function( starting_file, snr_cutoff=5, outfile='sum_VLA.cs
 
     ## and find signal to noise
     snr <- VLA$Peak_flux / ( VLA$rms / 1e3 ) 
-    good_snr <- which( snr >= snr_cutoff )
-
-    ## combine indices
-    good_index <- intersect( area_index, good_snr )
+    good_index <- which( snr >= snr_cutoff )
 
     my_VLA <- VLA[ good_index, ]
     
