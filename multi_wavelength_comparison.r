@@ -825,7 +825,7 @@ calculate_matched_mags <- function( my_band, radio_df, video_df, r_max, filename
 		close( pb )
         out_df <- data.frame( radio_ids, match_magnitudes )
         write.table( out_df, file=filename, row.names=FALSE, sep=',', quote=FALSE )
-	} else out_df <- read.table( filename, header=TRUE )
+	} else out_df <- read.table( filename, header=TRUE, sep=',' )
     return( out_df )
 }
 
